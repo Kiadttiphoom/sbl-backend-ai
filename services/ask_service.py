@@ -1,4 +1,5 @@
 import time
+import asyncio
 import re
 import json
 import logging
@@ -114,7 +115,7 @@ class AskService:
                                 try:
                                     yield _event("status", content="กำลังดึงข้อมูล...")
                                     logger.info("FETCHING_DATA: sql='%s'", sql[:200])
-                                    db_results = fetch_data(sql)
+                                    db_results = await asyncio.to_thread(fetch_data, sql)
                                     logger.info("FETCH_SUCCESS: rows=%d", len(db_results) if db_results else 0)
                                     if db_results:
                                         yield _event("data_count", count=len(db_results))
