@@ -19,23 +19,27 @@ class AnalysisEngine:
         if not results:
             return "ไม่พบข้อมูลที่ต้องการในระบบ"
         
-        # Take up to top 100 rows to avoid contradictory reporting (stats vs list)
+        # Take up to top 100 rows to ensure complete data visibility
         sample = results[:100]
         
-        # Format as compact CSV to maximize accuracy for 3B models
         lines = []
         if sample:
-            # Add Header based on the first row's keys
+            # Create Markdown Table Header
             headers = [self.COLUMN_LABEL_MAP.get(k, k) for k in sample[0].keys()]
-            lines.append(",".join(headers))
+            lines.append("| " + " | ".join(headers) + " |")
             
+            # Create Markdown Separator (---|---|---)
+            lines.append("|" + "|".join(["---"] * len(headers)) + "|")
+            
+            # Add data rows
             for row in sample:
-                lines.append(",".join([str(v) for v in row.values()]))
+                row_values = [str(v) for v in row.values()]
+                lines.append("| " + " | ".join(row_values) + " |")
         
         context = "\n".join(lines)
-        # Indicate truncation only if necessary (we use up to 100 now)
+        # Indicate truncation only if necessary
         if len(results) > 100:
-            context += f"\n... (และข้อมูลส่วนที่เหลืออีก {len(results) - 100} รายการ)"
+            context += f"\n\n*... (และข้อมูลส่วนที่เหลืออีก {len(results) - 100} รายการ)*"
         
         return context
 

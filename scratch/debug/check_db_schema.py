@@ -1,11 +1,17 @@
 import pyodbc
 
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# Use environment variables instead of hardcoded credentials
 DB_CONFIG = {
-    "server": "192.168.2.201",
-    "database": "lspdata",
-    "username": "sa",
-    "password": "1234",
-    "driver": "{SQL Server}"
+    "server": os.getenv("DB_SERVER", "localhost"),
+    "database": os.getenv("DB_NAME", "lspdata"),
+    "username": os.getenv("DB_USER", "sa"),
+    "password": os.getenv("DB_PASS", ""),
+    "driver": os.getenv("DB_DRIVER", "{SQL Server}")
 }
 
 def check_columns():

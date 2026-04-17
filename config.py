@@ -32,6 +32,8 @@ DB_USER    = os.getenv("DB_USER",   "USERNAME")
 DB_PASSWORD = os.getenv("DB_PASS", "PASSWORD")
 
 # Connection String for SQL Server 2008 / Standard
+# SECURITY WARNING: แนะนำให้ใช้ Database User ที่มีสิทธิ์เฉพาะ SELECT (Read-only) 
+# บน Table ที่จำเป็นเท่านั้น เพื่อป้องกันความเสียหายกรณีเกิด SQL Injection
 DB_CONFIG = (
     f"DRIVER={{SQL Server}};"
     f"SERVER={SQL_SERVER};"
