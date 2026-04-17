@@ -54,12 +54,12 @@ def get_compact_schema(schema: dict) -> str:
         for name, col in sorted_cols:
             pk = "*" if col.get("is_pk") else ""
             ex = f"(Ex:{col.get('example')})" if col.get("example") else ""
-            desc = (col.get("desc") or "")[:35]
+            desc = (col.get("desc") or "")[:150]
 
             # Dynamic options from JSON - reading mappings for status codes
             opts = col.get("options")
             if opts and isinstance(opts, dict):
-                opt_str = "|".join(f"{k}={str(v)[:14]}" for k, v in opts.items())
+                opt_str = "|".join(f"{k}={str(v)[:40]}" for k, v in opts.items())
                 opts_part = f"[{opt_str}]"
             else:
                 opts_part = ""

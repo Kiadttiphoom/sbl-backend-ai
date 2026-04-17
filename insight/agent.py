@@ -1,5 +1,5 @@
 import logging
-from prompts.insight import INSIGHT_SYSTEM, INSIGHT_PROMPT_TEMPLATE, GENERAL_SYSTEM
+from prompts.insight import INSIGHT_SYSTEM, INSIGHT_PROMPT_TEMPLATE, GENERAL_SYSTEM, GENERAL_PROMPT_TEMPLATE
 from config import MODEL_NAME
 
 logger = logging.getLogger(__name__)
@@ -29,14 +29,20 @@ class InsightAgent:
         if row_count == 1:
             question = f"(หมายเหตุ: พบข้อมูลพนักงานเพียงคนเดียว ให้ตอบคนนี้ทันที) " + question
 
-        # ── Standard Path: Full LLM reasoning ──────────────────────────────
-        prompt = INSIGHT_PROMPT_TEMPLATE.format(
-            question=question,
-            context=context,
-            stats=stats,
-            history=history,
-            training=training
-        )
+        # เลือก Template ตามความเหมาะสม
+        if intent == "DATA_QUERY":
+            prompt = INSIGHT_PROMPT_TEMPLATE.format(
+                question=question,
+                context=context,
+                stats=stats,
+                history=history,
+                training=training
+            )
+        else:
+            prompt = GENERAL_PROMPT_TEMPLATE.format(
+                history=history,
+                question=question
+            )
         
         messages = [
             {"role": "system", "content": system_prompt},

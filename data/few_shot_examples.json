@@ -1,9 +1,14 @@
 {
   "sql_examples": [
     {
+      "question": "พนักงานคนไหนดูแลสถานนะลูกหนี้ สูญ ที่ครบกำหนดบอกเลิก 35 วัน กี่คน ใครบ้าง",
+      "sql": "SELECT LSM010.FolID, LSM007.FolName, COUNT(LSM010.AccNo) AS TotalContracts FROM LSM010 INNER JOIN LSM007 ON LSM010.FolID = LSM007.FolID WHERE LSM010.Stat2 = 'F' GROUP BY LSM010.FolID, LSM007.FolName ORDER BY TotalContracts DESC",
+      "comment": "ครบกำหนดบอกเลิก 35 วัน ต้องใช้ Stat2 = 'F' เท่านั้น (ลำดับความสำคัญสูงสุด)"
+    },
+    {
       "question": "พนักงานคนไหนดูแลสถานนะลูกหนี้ สูญ ที่ครบถูกเตือน 3 ครั้ง และยกเลิก กี่คน ใครบ้าง และกีสัญญา",
       "sql": "SELECT LSM010.FolID, LSM007.FolName, COUNT(LSM010.AccNo) AS TotalContracts FROM LSM010 INNER JOIN LSM007 ON LSM007.FolID = LSM010.FolID WHERE LSM010.Stat2 = 'D' GROUP BY LSM010.FolID, LSM007.FolName ORDER BY TotalContracts DESC",
-      "comment": "เตือน 3 ครั้ง และยกเลิก ต้องใช้ Stat2 = 'D' เท่านั้น"
+      "comment": "เตือน 3 ครั้ง และยกเลิก ต้องใช้ Stat2 = 'D' เท่านั้น (ลำดับความสำคัญรองลงมา)"
     },
     {
       "question": "ขอข้อมูล ยอดคงเหลือ รวม VAT ของเลขที่สัญญา 0SJ0003INN1",
