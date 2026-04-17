@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+build/
+dist/
+*.spec
+
+# Secrets & Config
+.env
+config.local.py
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Project specific
+logs/
+*.log
+data/*.index
+data/*.faiss
+data/*.pkl
+
+# OS
+.DS_Store
+Thumbs.db
