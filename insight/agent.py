@@ -1,5 +1,5 @@
 import logging
-from prompts.insight import INSIGHT_SYSTEM, INSIGHT_PROMPT_TEMPLATE
+from prompts.insight import INSIGHT_SYSTEM, INSIGHT_PROMPT_TEMPLATE, GENERAL_SYSTEM
 from config import MODEL_NAME
 
 logger = logging.getLogger(__name__)
@@ -8,8 +8,11 @@ class InsightAgent:
     def __init__(self, ollama_client):
         self.ollama = ollama_client
 
-    async def generate_response(self, question, context, stats, history, training, row_count=0):
-        """Generates a professional response based on data results and history."""
+    async def generate_response(self, question, context, stats, history, training, row_count=0, intent="DATA_QUERY"):
+        """Generates a professional response based on intent."""
+        
+        # เลือก System Prompt ตามความเหมาะสม
+        system_prompt = INSIGHT_SYSTEM if intent == "DATA_QUERY" else GENERAL_SYSTEM
         
         # ── Fast-Path: Skip LLM for extremely simple single-row counts ────────
         # If user asks "How many" and we have 1 result, answer immediately.
@@ -36,7 +39,7 @@ class InsightAgent:
         )
         
         messages = [
-            {"role": "system", "content": INSIGHT_SYSTEM},
+            {"role": "system", "content": system_prompt},
             {"role": "user", "content": prompt}
         ]
 

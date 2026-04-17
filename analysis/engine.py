@@ -19,6 +19,10 @@ class AnalysisEngine:
         if not results:
             return "ไม่พบข้อมูลที่ต้องการในระบบ"
         
+        # Data Pipeline: แปลงข้อมูล (Rounding/Masking) ก่อนนำไปแสดงผล
+        from core.pipeline import pipeline
+        results = pipeline.run(results)
+        
         # Take up to top 100 rows to ensure complete data visibility
         sample = results[:100]
         

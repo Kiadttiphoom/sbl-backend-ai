@@ -13,8 +13,8 @@ def _require_env(key: str) -> str:
 
 # ── LLM ──────────────────────────────────────────────────────────────────────
 
-OLLAMA_ENDPOINT_1 = os.getenv("OLLAMA_ENDPOINT_1", "http://192.168.2.18:11434/api/generate")
-OLLAMA_ENDPOINT_2 = os.getenv("OLLAMA_ENDPOINT_2", "http://192.168.2.18:11434/api/chat")
+OLLAMA_ENDPOINT_1 = os.getenv("OLLAMA_ENDPOINT_1")
+OLLAMA_ENDPOINT_2 = os.getenv("OLLAMA_ENDPOINT_2")
 
 # MODEL_NAME  = ใช้ตอบ user (เล็ก เร็ว)
 # SQL_MODEL   = ใช้สร้าง SQL (ใหญ่ แม่น)

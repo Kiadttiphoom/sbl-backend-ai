@@ -43,7 +43,8 @@ def get_sql_training_context(query: str = "") -> str:
         relevant = store.sql_items
     else:
         # Large set: similarity search to keep prompt manageable
-        relevant = store.search_sql(query, top_k=3)
+        # Increased to top_k=5 to provide more context for complex joins
+        relevant = store.search_sql(query, top_k=5)
 
     if not relevant:
         return ""
@@ -71,7 +72,7 @@ def get_insight_training_context(query: str = "") -> str:
 
     total = len(store.insight_items)
 
-    if total <= 2 or not query:
+    if total <= 3 or not query:
         relevant = store.insight_items
     else:
         relevant = store.search_insight(query, top_k=2)

@@ -16,7 +16,7 @@ class OllamaClient:
     def __init__(self):
         self.client = httpx.AsyncClient(timeout=LLM_TIMEOUT)
 
-    async def generate(self, prompt: str, tokens: int = 300, model: Optional[str] = None, temperature: float = 0.1, top_p: float = 0.9, top_k: int = 40, repeat_penalty: float = 1.1) -> str:
+    async def generate(self, prompt: str, tokens: int = 300, model: Optional[str] = None, temperature: float = 0.3, top_p: float = 0.9, top_k: int = 40, repeat_penalty: float = 1.1) -> str:
         """Non-streaming generate พร้อม retry — model และ parameters override ได้"""
         payload = {
             "model":   model or MODEL_NAME,
@@ -57,7 +57,7 @@ class OllamaClient:
 
         raise RuntimeError(f"LLM unavailable after {_RETRY_ATTEMPTS} attempts: {last_error}")
 
-    async def stream(self, prompt: str, model: Optional[str] = None, tokens: int = 500, stop: Optional[List[str]] = None, temperature: float = 0.1, top_p: float = 0.8, top_k: int = 40, repeat_penalty: float = 1.1):
+    async def stream(self, prompt: str, model: Optional[str] = None, tokens: int = 500, stop: Optional[List[str]] = None, temperature: float = 0.3, top_p: float = 0.8, top_k: int = 40, repeat_penalty: float = 1.1):
         """Streaming generate — yield tokens ทีละตัว"""
         payload = {
             "model":   model or MODEL_NAME,

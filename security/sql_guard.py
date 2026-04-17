@@ -9,7 +9,8 @@ class SQLGuard:
         # Forbidden keywords for SQL Server 2008 (Read-only agent)
         self.forbidden = [
             "DROP", "DELETE", "UPDATE", "INSERT", "TRUNCATE", "ALTER", "CREATE",
-            "EXEC", "PROCEDURE", "UNION", "GRANT", "REVOKE", "XP_"
+            "EXEC", "PROCEDURE", "UNION", "GRANT", "REVOKE", "XP_",
+            "WITH", "OVER", "PARTITION", "COLLATE", "INTO"
         ]
 
     def sanitize(self, sql: str) -> str:
@@ -21,7 +22,7 @@ class SQLGuard:
 
     def validate(self, sql: str) -> Tuple[bool, str]:
         """Validates that the SQL is read-only and doesn't contain forbidden patterns."""
-        sql_upper = sql.upper()
+        sql_upper = sql.upper().strip()
         
         # Check for forbidden keywords
         for word in self.forbidden:
@@ -30,7 +31,12 @@ class SQLGuard:
         
         # Ensure it's a SELECT statement
         if not sql_upper.startswith("SELECT"):
-            return False, "Only SELECT statements are allowed"
+            return False, "Only SELECT statements are allowed (CTEs are blocked)"
+
+        # Block Subqueries (Nested SELECTs)
+        # Patterns like "(SELECT..." or "... IN (SELECT..."
+        if re.search(r"\(\s*SELECT\b", sql_upper):
+            return False, "Subqueries are not allowed for security reasons"
             
         return True, "ok"
 

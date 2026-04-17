@@ -40,19 +40,19 @@ class AskService:
 
         # ── Step 2: Intent Detection ──────────────────────────────────────
         yield _event("status", content="กำลังวิเคราะห์คำถาม...")
-        is_obvious_query = any(w in q for w in ["ข้อมูล", "ยอดหนี้", "สัญญา", "เลขที่", "กี่บาท", "เท่าไหร่", "รหัส"])
-        
-        if is_obvious_query:
-            intent, confidence = "DATA_QUERY", "high"
-        else:
-            res = detect_intent(q)
-            intent, confidence = res["intent"], res["confidence"]
+        res = detect_intent(q, history)
+        intent, confidence = res["intent"], res["confidence"]
 
-        logger.info("INTENT DETECTION: intent=%s, confidence=%s, question='%s'", intent, confidence, q)
+        logger.info("INTENT DETECTION: intent=%s, confidence=%s, matched=%s, question='%s'",
+                    intent, confidence, res.get("matched", []), q)
         yield _event("intent", intent=intent, confidence=confidence)
 
         # ── Preparation ──────────────────────────────────────────────────
+        # Structured Context Extraction (Follow-up logic)
+        structured_context = self._extract_structured_context(history)
         hist_str = "\n".join([f"- {m['role']}: {m['content'][:100]}" for m in history[-5:]]) if history else "ไม่มีประวัติการสนทนา"
+        if structured_context:
+            hist_str = f"[LAST_ENTITIES]: {structured_context}\n" + hist_str
 
         db_results = []
         formatted_context = ""
@@ -66,18 +66,15 @@ class AskService:
                 schema_text = get_relevant_schema(q, self.schema)
                 training_context = get_sql_training_context(q)
                 
-                logger.debug("SCHEMA_RETRIEVED:\n%s", schema_text[:500])
-                logger.debug("TRAINING_EXAMPLES:\n%s", training_context[:300])
-                
                 prompt = SQL_SYSTEM.format(
                     schema_text=schema_text, 
                     training_context=training_context,
                     history=hist_str
                 )
-                logger.debug("FULL_PROMPT_SENT_TO_LLM:\n%s", prompt[:800])
                 
                 sql_raw = ""
-                async for chunk in self.ollama.stream(prompt, model=SQL_MODEL, tokens=500, stop=["###", "Output:"]):
+                # Optimized stop condition to prevent waiting for redundant tokens
+                async for chunk in self.ollama.stream(prompt, model=SQL_MODEL, tokens=500, stop=["###", "Output:", "```\n"]):
                     sql_raw += chunk
                     if "```" in sql_raw and sql_raw.count("```") >= 2:
                         break
@@ -96,40 +93,28 @@ class AskService:
                 else:
                     # SAFETY CHECKS
                     safe, reason = guard.validate(sql)
-                    logger.info("SQL_GUARD_VALIDATE: safe=%s, reason=%s", safe, reason)
                     if not safe:
                         yield _event("warning", content=f"คำสั่ง SQL ไม่ผ่านการตรวจสอบ: {reason}")
                     else:
-                        # BUSINESS LOGIC CHECK
                         biz_safe, biz_reason = validate_business_logic(q, sql)
-                        logger.info("SQL_BUSINESS_LOGIC: safe=%s, reason=%s", biz_safe, biz_reason)
                         if not biz_safe:
                             yield _event("warning", content=f"ตรวจพบความผิดพลาดตรรกะ: {biz_reason}")
                         else:
                             val_safe, val_reason = sanitize_sql_values(sql)
-                            logger.info("SQL_VALUE_SANITIZE: safe=%s, reason=%s", val_safe, val_reason)
                             if not val_safe:
                                 yield _event("warning", content="ตรวจพบค่าที่ไม่ปลอดภัยใน SQL")
                             else:
                                 yield _event("sql", sql=sql)
                                 try:
-                                    yield _event("status", content="กำลังดึงข้อมูล...")
-                                    logger.info("FETCHING_DATA: sql='%s'", sql[:200])
                                     db_results = await asyncio.to_thread(fetch_data, sql)
-                                    logger.info("FETCH_SUCCESS: rows=%d", len(db_results) if db_results else 0)
                                     if db_results:
                                         yield _event("data_count", count=len(db_results))
-                                        yield _event("status", content="กำลังวิเคราะห์ข้อมูล...")
                                         formatted_context = engine.format_db_results(db_results, self.schema, question=q)
                                         stats_context = engine.get_summary_stats(db_results)
-                                        logger.info("FORMAT_DB_RESULTS: context='%s'", formatted_context[:300])
-                                        logger.info("SUMMARY_STATS: stats='%s'", stats_context)
                                     else:
-                                        logger.info("NO_RESULTS: SQL executed but no data returned")
                                         yield _event("info", content="ไม่พบข้อมูลตามเงื่อนไข")
                                 except Exception as e:
-                                    logger.error("DB_FETCH_ERROR: %s | Stack:", e, exc_info=True)
-                                    logger.error("DB error: %s", e)
+                                    logger.error("DB_FETCH_ERROR: %s", e)
                                     yield _event("warning", content="เกิดข้อผิดพลาดในการดึงข้อมูล")
 
             except Exception as e:
@@ -140,31 +125,53 @@ class AskService:
         # ── Step 4: Insight Generation ────────────────────────────────────
         try:
             yield _event("status", content="กำลังเรียบเรียงคำตอบ...")
-            logger.info("INSIGHT_GENERATION: intent=%s, data_rows=%d, formatted_context_len=%d", intent, len(db_results), len(formatted_context) if formatted_context else 0)
             if intent == "GENERAL":
                 formatted_context = "(การสนทนาทั่วไป)"
             elif not formatted_context:
                 formatted_context = "ไม่พบข้อมูลที่เกี่ยวข้อง"
 
-            # History formatting (Using synchronized hist_str from above)
-            insight_training = get_insight_training_context(q)
-            
-            logger.info("INSIGHT_INPUT: context='%s...' | stats='%s' | training_len=%d | row_count=%d", 
-                       formatted_context[:150], stats_context[:100], len(insight_training), len(db_results))
+            # ── Optimized Insight Path (Turbo v2) ──
+            # ขยายความจำเพิ่มเป็น 5 ข้อความล่าสุด (ตามคำแนะนำของ AI เพื่อนบ้าน)
+            # เพื่อให้จำบริบทการคุยได้ดีขึ้น แต่ยังวิ่งไวอยู่ครับ
+            hist_brief = "\n".join([f"- {m['role']}: {m['content'][:100]}" for m in history[-5:]]) if history else ""
 
             response_tokens = []
             async for token in self.insight_agent.generate_response(
-                q, formatted_context, stats_context, hist_str, insight_training,
-                row_count=len(db_results)
+                q, formatted_context, stats_context, hist_brief, "",
+                row_count=len(db_results), intent=intent
             ):
                 response_tokens.append(token)
                 yield _event("content", content=token)
             
-            logger.info("INSIGHT_OUTPUT: total_tokens=%d, response='%s'", len(response_tokens), ''.join(response_tokens)[:200])
+            logger.info("INSIGHT_OUTPUT: len=%d", len(response_tokens))
 
         except Exception as e:
-            logger.error("INSIGHT_ERROR: %s | Stack:", e, exc_info=True)
+            logger.error("INSIGHT_ERROR: %s", e)
             yield _event("error", content="ระบบ AI ไม่สามารถตอบได้ในขณะนี้")
             return
 
         yield _event("done", time=round(time.time() - start, 2))
+
+    def _extract_structured_context(self, history) -> str:
+        """
+        วิเคราะห์ประวัติการสนทนาเพื่อหา Entity ล่าสุด เช่น FolID หรือ Stat2 
+        เพื่อให้ AI สามารถตอบคำถามต่อเนื่องได้แม่นยำ
+        """
+        if not history: return ""
+        
+        entities = {}
+        # วนลูบย้อนหลัง 3 ข้อความ
+        for m in reversed(history[-3:]):
+            content = m.get("content", "")
+            # หา Staff ID / FolID (ตัวเลข 1-4 หลัก)
+            fol_match = re.search(r"รหัสพนักงาน[:\s]*(\d{1,4})", content)
+            if fol_match and "FolID" not in entities:
+                entities["FolID"] = fol_match.group(1)
+            
+            # หาสถานะ (A, B, C, D, F)
+            stat_match = re.search(r"สถานะ[:\s]*([ABCDEF])\b", content)
+            if stat_match and "Stat2" not in entities:
+                entities["Stat2"] = stat_match.group(1)
+        
+        if not entities: return ""
+        return ", ".join([f"{k}={v}" for k, v in entities.items()])
