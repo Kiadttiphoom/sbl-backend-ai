@@ -12,7 +12,9 @@ def fetch_data(sql: str):
         # Check if query returned rows
         if cursor.description:
             columns = [column[0] for column in cursor.description]
-            results = [dict(zip(columns, row)) for row in cursor.fetchall()]
+            # OOM Protection: จำกัดจำนวนแถวที่ดึงมาที่ 1,000 แถวแรกเด็ดขาด
+            rows = cursor.fetchmany(1000)
+            results = [dict(zip(columns, row)) for row in rows]
             return results
         return []
     except Exception as e:
