@@ -31,24 +31,34 @@
       "comment": "ยอดปิดบัญชีคือการรวม ยอดหนี้(รวมVAT) + ดอกเบี้ยค้าง + ค่าทวงถาม + ค่า Collection"
     },
     {
-      "question": "ดูข้อมูล ค่างวดที่ค้าง ทั้งสิ้น ของสัญญา 1FJ0001INN",
-      "sql": "SELECT Credit + CreTax FROM LSM010 WHERE AccNo = '1FJ0001INN'",
-      "comment": "ค่างวดที่ค้างค้างทั้งสิ้น ต้องนำ Credit + CreTax"
+      "question": "ขอลูกหนี้ที่ถูกดำเนินคดี (มีวันที่พิพากษาแล้ว) ทั้งหมดกี่ราย",
+      "sql": "SELECT COUNT(*) AS TotalCases FROM LSM010 WHERE LawDate <> ''",
+      "comment": "การตรวจสอบข้อมูลคดีความ (Lawsuit) ดูจากคอลัมน์ LawDate ที่ไม่ว่าง"
     },
     {
-      "question": "ขอจำนวนลูกหนี้แยกตามสถานะ Aging (Stat2) ว่ามีสถานะละกี่ราย",
-      "sql": "SELECT Stat2, COUNT(*) AS TotalCount FROM LSM010 GROUP BY Stat2",
-      "comment": "ใช้ GROUP BY Stat2 เพื่อดูการกระจายตัวของกลุ่มลูกหนี้"
+      "question": "มีลูกหนี้ค้างเกิน 3 เดือนกี่ราย (รวมทั้งบริษัท)",
+      "sql": "SELECT COUNT(*) AS TotalOverdue FROM LSM010 WHERE Stat2 = 'D'",
+      "comment": "นับจำนวนลูกหนี้ที่ค้างชำระเกิน 3 เดือน (Stat2 = 'D')"
     },
     {
-      "question": "รายชื่อลูกค้าที่ติด Watchlist มีใครบ้าง (ขอดูเลขที่สัญญา)",
-      "sql": "SELECT AccNo FROM LSM010 WHERE Watchlist = 'W'",
-      "comment": "กรองข้อมูลด้วย Watchlist = 'W'"
+      "question": "ถ้าเจาะจงเฉพาะสาขา MF มีรายชื่อสัญญาไหนบ้างที่ค้างชำระเกิน 3 เดือน",
+      "sql": "SELECT AccNo, Stat2 FROM LSM010 WHERE OLID = 'MF' AND Stat2 = 'D'",
+      "comment": "กรองข้อมูลสาขา MF และสถานะค้างชำระเกิน 3 เดือน (Stat2 = 'D')"
     },
     {
-      "question": "ลูกหนี้ที่ถูกเตือน 3 ครั้ง และยกเลิก (สถานะ D) มีกี่ราย",
-      "sql": "SELECT COUNT(*) AS TotalCases FROM LSM010 WHERE Stat2 = 'D'",
-      "comment": "นับจำนวนลูกหนี้ที่ค้างชำระ Stat2 = 'D'"
+      "question": "ขอเปรียบเทียบยอดหนี้ค้าง (Credit) รวม แยกตามพนักงานติดตามหนี้ (FolID)",
+      "sql": "SELECT FolID, SUM(Credit) AS TotalCredit FROM LSM010 GROUP BY FolID ORDER BY TotalCredit DESC",
+      "comment": "สรุปยอดหนี้ที่พนักงานแต่ละคน (FolID) รับผิดชอบจัดลำดับจากมากไปน้อย"
+    },
+    {
+      "question": "พนักงานคนไหนดูแลสถานนะลูกหนี้ สูญ ปกติ เยอะที่สุด",
+      "sql": "SELECT LSM010.FolID, LSM007.FolName, COUNT(LSM010.AccNo) AS TotalContracts FROM LSM010 INNER JOIN LSM007 ON LSM007.FolID = LSM010.FolID WHERE LSM010.Stat2 = 'A' GROUP BY LSM010.FolID, LSM007.FolName ORDER BY TotalContracts DESC",
+      "comment": "แมพ 'ปกติ' -> Stat2 = 'A'"
+    },
+    {
+      "question": "ขอสรุปยอดภาษีคงเหลือและดอกเบี้ยค้างทั้งหมดของพนักงานแต่ละคน โดยเรียงตามยอดภาษีและยอดดอกเบี้ยจากมากไปน้อย",
+      "sql": "SELECT FolID, SUM(BalTax) AS TotalVAT, SUM(Interest) AS TotalInterest FROM LSM010 GROUP BY FolID ORDER BY TotalVAT DESC, TotalInterest DESC",
+      "comment": "ตัวอย่างการใช้ AS เพื่อตั้งชื่อให้ผลลัพธ์จาก aggregate และใช้ชื่อนั้นในการจัดลำดับ"
     }
   ],
   "insight_examples": [
@@ -66,6 +76,11 @@
       "question": "พนักงานคนไหนดูแลลูกหนี้เยอะที่สุด",
       "context": "รายการที่ 1: ชื่อผู้ดูแล: นางสาวพรศิริ | จำนวนสัญญา: 5\nรายการที่ 2: ชื่อผู้ดูแล: นายบอรอเฮง | จำนวนสัญญา: 4",
       "answer": "พนักงานที่ดูแลลูกหนี้มากที่สุดคือ **นางสาวพรศิริ** โดยมีรายละเอียดพนักงานท่านอื่นๆ ดังนี้ครับ"
+    },
+    {
+      "question": "พนักงานคนไหนดูแลสถานนะลูกหนี้ สูญ ที่ครบกำหนดบอกเลิก 35 วัน กี่คน ใครบ้าง",
+      "context": "SELECT  AccNo, LSM010.FolID, LSM007.FolName FROM LSM010 INNER JOIN LSM007 ON LSM007.FolID = LSM010.FolID WHERE Stat2 = 'F' AND LSM010.FolID != ''",
+      "answer": ""
     }
   ]
 }
