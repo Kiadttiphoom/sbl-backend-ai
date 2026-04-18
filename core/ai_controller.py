@@ -6,7 +6,7 @@ from typing import AsyncGenerator, Dict, Any, List
 from core.intent import detect_intent
 from security.injection import detect_prompt_injection
 from security.business_rules import validate_business_logic
-from db.templates import SQL_TEMPLATES, TEMPLATE_DESCRIPTIONS, TEMPLATE_EXAMPLES, render_query
+from db.templates import SQL_TEMPLATES, TEMPLATE_DESCRIPTIONS, TEMPLATE_EXAMPLES, render_query, get_category_list, get_templates_by_category, TEMPLATE_CATEGORIES
 from db.fetch import fetch_data
 from services.formatter import engine
 from llm.ollama_client import OllamaClient
@@ -29,14 +29,48 @@ class AIController:
         """Helper for SSE formatting."""
         return json.dumps({"type": type_, **kwargs}, ensure_ascii=False) + "\n"
 
+    async def _detect_category(self, q: str) -> str:
+        """
+        Detect which category the question belongs to.
+        Returns category name (branch, delinquency, contract, payment, employee, accounting, legal, risk, other)
+        """
+        categories = get_category_list()
+        prompt = f"""
+Classify this question into ONE of these categories:
+{categories}
+
+Question: "{q}"
+
+Respond with ONLY the category name in lowercase. Example responses: "branch", "delinquency", "payment"
+If unsure, respond with "other"
+        """
+        try:
+            res_text = await self.ollama.generate(prompt, tokens=20, temperature=0.1)
+            category = res_text.strip().lower().split()[0]  # Get first word
+            return category if category in ["branch", "delinquency", "contract", "payment", "employee", "accounting", "legal", "risk"] else "other"
+        except Exception as e:
+            logger.warning(f"Category detection failed: {e}, defaulting to 'other'")
+            return "other"
+
     async def _decide_sql_template(self, q: str) -> Dict[str, Any]:
         """
         Uses the LLM to choose the correct SQL template and extract parameters.
+        First detects category, then filters templates by that category.
         Returns a dictionary: {"template_name": "...", "params": {...}}
         """
-        # Build template list with descriptions and examples
+        # Step 1: Detect category to filter templates
+        category = await self._detect_category(q)
+        logger.info(f"📂 Detected category: {category}")
+        
+        # Step 2: Get templates for this category
+        category_templates = get_templates_by_category(category)
+        if not category_templates:
+            logger.warning(f"⚠️ No templates for category '{category}', using all templates")
+            category_templates = SQL_TEMPLATES
+        
+        # Step 3: Build prompt with only relevant templates
         template_info_list = []
-        for template_name in SQL_TEMPLATES.keys():
+        for template_name in category_templates.keys():
             desc = TEMPLATE_DESCRIPTIONS.get(template_name, "")
             examples = TEMPLATE_EXAMPLES.get(template_name, [])
             example_str = f"\n  Example: {examples[0]}" if examples else ""

@@ -33,10 +33,55 @@ TEMPLATE_EXAMPLES: Dict[str, list] = {
     for name, template_info in _QUERIES_DATA["templates"].items()
 }
 
+# Build template category mappings
+TEMPLATE_CATEGORIES: Dict[str, Dict[str, str]] = {
+    name: {
+        "category": template_info.get("category", "other"),
+        "subcategory": template_info.get("subcategory", "general")
+    }
+    for name, template_info in _QUERIES_DATA["templates"].items()
+}
+
+# Group templates by category
+def _group_by_category() -> Dict[str, list]:
+    """Group template names by their category."""
+    grouped = {}
+    for name, info in _QUERIES_DATA["templates"].items():
+        cat = info.get("category", "other")
+        if cat not in grouped:
+            grouped[cat] = []
+        grouped[cat].append(name)
+    return grouped
+
+TEMPLATES_BY_CATEGORY = _group_by_category()
+
+def get_category_list() -> str:
+    """Return available categories for LLM."""
+    categories = {
+        "branch": "สาขา (Branch) — ข้อมูลสาขา, ปิดบัญชี",
+        "delinquency": "ลูกหนี้ Aging — Stat2 (A/B/C/D/F/H), ปกติ, เตือน, ครบกำหนด",
+        "contract": "สัญญา — รายละเอียด, ใกล้หมดอายุ",
+        "payment": "การจ่าย — ค่าค้าง, ดอกเบี้ย, ค่าทวงถาม",
+        "employee": "พนักงาน — Portfolio, สัญญา, Delinquency",
+        "accounting": "บัญชี — สรุป, ตัดหนี้, Aging",
+        "legal": "คดีความ — ติดคดี, ยึดรถ",
+        "risk": "ความเสี่ยง — Watch List, Restructuring"
+    }
+    return "\n".join([f"- {k}: {v}" for k, v in categories.items()])
+
+def get_templates_by_category(category: str) -> Dict[str, str]:
+    """Get templates filtered by category."""
+    templates = TEMPLATES_BY_CATEGORY.get(category, [])
+    return {
+        name: SQL_TEMPLATES[name]
+        for name in templates
+        if name in SQL_TEMPLATES
+    }
+
 
 def reload_queries():
     """Hot-reload queries from JSON without restarting server."""
-    global SQL_TEMPLATES, TEMPLATE_DESCRIPTIONS, TEMPLATE_EXAMPLES, _QUERIES_DATA
+    global SQL_TEMPLATES, TEMPLATE_DESCRIPTIONS, TEMPLATE_EXAMPLES, TEMPLATE_CATEGORIES, TEMPLATES_BY_CATEGORY, _QUERIES_DATA
     try:
         _QUERIES_DATA = _load_queries()
         SQL_TEMPLATES = {
@@ -51,6 +96,14 @@ def reload_queries():
             name: template_info.get("example_questions", [])
             for name, template_info in _QUERIES_DATA["templates"].items()
         }
+        TEMPLATE_CATEGORIES = {
+            name: {
+                "category": template_info.get("category", "other"),
+                "subcategory": template_info.get("subcategory", "general")
+            }
+            for name, template_info in _QUERIES_DATA["templates"].items()
+        }
+        TEMPLATES_BY_CATEGORY = _group_by_category()
         logger.info(f"✅ Reloaded {len(SQL_TEMPLATES)} templates from queries.json")
         return True
     except Exception as e:
