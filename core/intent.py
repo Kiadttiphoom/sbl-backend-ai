@@ -2,7 +2,7 @@ import json
 import logging
 import re
 import math
-from typing import Set, Dict, Optional, List
+from typing import Set, Dict, Optional, List, Any
 from config import STRONG_DATA_KEYWORDS, WEAK_DATA_KEYWORDS
 from schema.loader import load_schema, extract_keywords
 
@@ -26,7 +26,7 @@ def _load_schema_keywords() -> Set[str]:
 _SCHEMA_KEYWORDS: Set[str] = _load_schema_keywords()
 
 # ── Followup patterns (คำถามสั้นๆ ที่แสดงว่าต่อเนื่องจาก context เดิม) ─────────
-_FOLLOWUP_PATTERNS = [
+_FOLLOWUP_PATTERNS: List[str] = [
     r"^(แล้ว|แล้วก็|แล้วถ้า|แล้วของ)",       # "แล้วพนักงานคนนี้ล่ะ"
     r"(ของเขา|ของคนนี้|ของคนนั้|ของพนักงานนี้)",
     r"^(คนนี้|คนนั้น|เขา|เธอ|มัน|ตัวนี้|รายนี้)",
@@ -36,7 +36,7 @@ _FOLLOWUP_PATTERNS = [
     r"^(ดู|แสดง|หา|เช็ค|ตรวจ).{0,15}(ด้วย|อีก|เพิ่ม)$",
 ]
 
-def _is_followup(q: str, history: List[Dict]) -> bool:
+def _is_followup(q: str, history: List[Dict[str, str]]) -> bool:
     """
     ตรวจสอบว่าคำถามนี้เป็น followup ของ DATA_QUERY ก่อนหน้าหรือไม่
     เงื่อนไข: history ล่าสุดเป็น DATA_QUERY + คำถามสั้น/มี pronoun
@@ -75,7 +75,7 @@ def _is_followup(q: str, history: List[Dict]) -> bool:
 
 # ── Intent detection ──────────────────────────────────────────────────────────
 
-def detect_intent(q: str, history: Optional[List[Dict]] = None) -> Dict:
+def detect_intent(q: str, history: Optional[List[Dict[str, str]]] = None) -> Dict[str, Any]:
     """
     คืน dict:
         intent     : "DATA_QUERY" | "GENERAL"
@@ -90,7 +90,7 @@ def detect_intent(q: str, history: Optional[List[Dict]] = None) -> Dict:
         5. ไม่ match เลย    → GENERAL high
     """
     ql      = q.lower()
-    matched = []
+    matched: List[str] = []
 
     # 1. Strong keywords → confidence high
     for k in STRONG_DATA_KEYWORDS:
@@ -121,7 +121,7 @@ def detect_intent(q: str, history: Optional[List[Dict]] = None) -> Dict:
     return {"intent": "GENERAL", "confidence": "high", "matched": []}
 
 
-def _detect_semantic_intent(q: str) -> Optional[Dict]:
+def _detect_semantic_intent(q: str) -> Optional[Dict[str, Any]]:
     """
     ใช้ Vector Similarity เพื่อตรวจสอบว่าคำถามเกี่ยวข้องกับข้อมูลการเงินหรือไม่
     (กันเหนียวกรณี User พิมพ์ผิด หรือใช้คำพ้องความหมาย)

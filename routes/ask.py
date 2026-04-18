@@ -1,4 +1,4 @@
-from typing import List, Dict
+from typing import List, Dict, Any
 from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -11,17 +11,17 @@ router = APIRouter(tags=["AI Agent"])
 
 class AskRequest(BaseModel):
     question: str
-    history: List[Dict] = []  # [{"role": "user"|"ai", "content": "..."}, ...]
+    history: List[Dict[str, str]] = []  # [{"role": "user"|"ai", "content": "..."}, ...]
 
 # ── Dependency Initialization ───────────────────────────────────────────────
 # These act as singletons for the router's lifecycle
-ollama_client = OllamaClient()
-insight_agent = InsightAgent(ollama_client)
-db_schema = load_schema()
-ask_service = AskService(ollama_client, insight_agent, db_schema)
+ollama_client: OllamaClient = OllamaClient()
+insight_agent: InsightAgent = InsightAgent(ollama_client)
+db_schema: Dict[str, Any] = load_schema()
+ask_service: AskService = AskService(ollama_client, insight_agent, db_schema)
 
 @router.post("/ask")
-async def ask_post(body: AskRequest, request: Request):
+async def ask_post(body: AskRequest, request: Request) -> StreamingResponse:
     """POST endpoint supporting conversation history."""
     return StreamingResponse(
         ask_service.process_ask(body.question, body.history),
@@ -29,7 +29,7 @@ async def ask_post(body: AskRequest, request: Request):
     )
 
 @router.get("/ask")
-async def ask_get(q: str, request: Request):
+async def ask_get(q: str, request: Request) -> StreamingResponse:
     """GET endpoint for backward compatibility (no history)."""
     return StreamingResponse(
         ask_service.process_ask(q, []),

@@ -20,6 +20,7 @@ import os
 import hashlib
 import pickle
 import re
+import random
 from typing import Optional, List, Dict
 
 import httpx
@@ -214,10 +215,19 @@ class FewShotStore:
             )
             for item in items
         ]
+        # Sort by score DESC
         scored.sort(key=lambda x: x[1], reverse=True)
 
         results = [item for item, s in scored[:top_k] if s > 0]
-        return results if results else items[:top_k]
+        
+        # FIX: If no keywords match, return 5 RANDOM examples instead of the first 5 in the file
+        # This prevents "Pattern Latching" where the AI always follows the top-most example
+        if not results:
+            if len(items) <= top_k:
+                return items
+            return random.sample(items, top_k)
+            
+        return results
 
     def search_sql(self, query: str, top_k: int = 5) -> List[Dict]:
         return self._search(self.sql_items, query, top_k)

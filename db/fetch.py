@@ -1,9 +1,11 @@
 import logging
+from typing import List, Dict, Any
 from db.connector import get_connection
+from core.exceptions import DatabaseError
 
 logger = logging.getLogger(__name__)
 
-def fetch_data(sql: str):
+def fetch_data(sql: str) -> List[Dict[str, Any]]:
     """Executes SQL and returns a list of dictionaries."""
     conn = get_connection()
     try:
@@ -19,6 +21,6 @@ def fetch_data(sql: str):
         return []
     except Exception as e:
         logger.error("Fetch data error: %s | SQL: %s", e, sql)
-        raise
+        raise DatabaseError(f"คิวรีฐานข้อมูลล้มเหลว: {str(e)}", details=sql)
     finally:
         conn.close()

@@ -1,11 +1,11 @@
 import json
 import logging
 import os
-from typing import Dict, Set
+from typing import Dict, Set, Optional, Any
 
 logger = logging.getLogger(__name__)
 
-def load_schema(path: str = None) -> Dict:
+def load_schema(path: Optional[str] = None) -> Dict[str, Any]:
     """Loads the database schema from a JSON file."""
     # If no path provided, use config's SCHEMA_PATH
     if path is None:
@@ -23,9 +23,9 @@ def load_schema(path: str = None) -> Dict:
         logger.error("Error loading schema: %s", e)
         return {}
 
-def extract_keywords(schema: Dict) -> Set:
+def extract_keywords(schema: Dict[str, Any]) -> Set[str]:
     """Extracts all table and column descriptions as keywords for intent matching."""
-    keywords = set()
+    keywords: Set[str] = set()
     for table, info in schema.items():
         if "description" in info:
             keywords.add(info["description"].lower())

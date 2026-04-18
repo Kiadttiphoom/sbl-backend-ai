@@ -13,28 +13,29 @@ def _require_env(key: str) -> str:
 
 # ── LLM ──────────────────────────────────────────────────────────────────────
 
-OLLAMA_ENDPOINT_1 = os.getenv("OLLAMA_ENDPOINT_1")
-OLLAMA_ENDPOINT_2 = os.getenv("OLLAMA_ENDPOINT_2")
+from typing import List, Optional
+
+OLLAMA_ENDPOINT_1: Optional[str] = os.getenv("OLLAMA_ENDPOINT_1")
+OLLAMA_ENDPOINT_2: Optional[str] = os.getenv("OLLAMA_ENDPOINT_2")
+OLLAMA_BASE_URL: Optional[str]   = os.getenv("OLLAMA_BASE_URL")
 
 # MODEL_NAME  = ใช้ตอบ user (เล็ก เร็ว)
 # SQL_MODEL   = ใช้สร้าง SQL (ใหญ่ แม่น)
-MODEL_NAME  = os.getenv("MODEL_NAME",  "qwen2.5:3b")
-SQL_MODEL   = os.getenv("SQL_MODEL",   "qwen2.5-coder:3b")
+MODEL_NAME: str  = os.getenv("MODEL_NAME")
+SQL_MODEL: str   = os.getenv("SQL_MODEL")
 
-LLM_TIMEOUT = int(os.getenv("LLM_TIMEOUT", "120"))
+LLM_TIMEOUT: int = int(os.getenv("LLM_TIMEOUT"))
 
 # ── Database ──────────────────────────────────────────────────────────────────
 
 # Database Configuration (pyodbc)
-SQL_SERVER = os.getenv("DB_SERVER", "DB_SERVER_ADDRESS")
-DATABASE   = os.getenv("DB_NAME",   "DBNAME")
-DB_USER    = os.getenv("DB_USER",   "USERNAME")
-DB_PASSWORD = os.getenv("DB_PASS", "PASSWORD")
+SQL_SERVER: str = os.getenv("DB_SERVER")
+DATABASE: str   = os.getenv("DB_NAME")
+DB_USER: str    = os.getenv("DB_USER")
+DB_PASSWORD: str = os.getenv("DB_PASS")
 
 # Connection String for SQL Server 2008 / Standard
-# SECURITY WARNING: แนะนำให้ใช้ Database User ที่มีสิทธิ์เฉพาะ SELECT (Read-only) 
-# บน Table ที่จำเป็นเท่านั้น เพื่อป้องกันความเสียหายกรณีเกิด SQL Injection
-DB_CONFIG = (
+DB_CONFIG: str = (
     f"DRIVER={{SQL Server}};"
     f"SERVER={SQL_SERVER};"
     f"DATABASE={DATABASE};"
@@ -43,24 +44,24 @@ DB_CONFIG = (
 )
 
 # Paths
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-FEW_SHOT_PATH = os.path.join(BASE_DIR, "data", "few_shot_examples.json")
-SCHEMA_PATH   = os.path.join(BASE_DIR, "data", "database_schema.json")
+BASE_DIR: str = os.path.dirname(os.path.abspath(__file__))
+FEW_SHOT_PATH: str = os.path.join(BASE_DIR, "data", "few_shot_examples.json")
+SCHEMA_PATH: str   = os.path.join(BASE_DIR, "data", "database_schema.json")
 
 # ── Security ──────────────────────────────────────────────────────────────────
 
-ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
+ALLOWED_ORIGINS: List[str] = os.getenv("ALLOWED_ORIGINS").split(",")
 
 # ── Intent keywords ───────────────────────────────────────────────────────────
 
-STRONG_DATA_KEYWORDS = [
+STRONG_DATA_KEYWORDS: List[str] = [
     "ยอด", "ยอดหนี้", "ยอดคงเหลือ", "บัญชี", "สัญญา",
     "loan", "balance", "ลูกหนี้", "ดอกเบี้ย",
     "accno", "cusid", "สถานะ", "งวด", "ค่างวด",
     "เลขที่", "เลขสัญญา", "หมายเลข", "รหัส",
 ]
 
-WEAK_DATA_KEYWORDS = [
+WEAK_DATA_KEYWORDS: List[str] = [
     "เท่าไหร่", "กี่", "ราคา", "เงิน", "ค้าง",
     "เท่าใด", "จำนวน", "ทั้งหมด",
 ]

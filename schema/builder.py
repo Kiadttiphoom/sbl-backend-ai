@@ -6,8 +6,8 @@ def get_relevant_schema(query: str, schema: dict) -> str:
     Selects only columns relevant to the user's query to reduce token count.
     Relies on JSON metadata (is_mandatory, descriptions).
     """
-    query_clean = re.sub(r'[^\w\s]', ' ', query.lower())
-    keywords = set(query_clean.split())
+    # Regex-based tokenizer for Thai support (letters and digits/English tokens of 2+ chars)
+    keywords = set(re.findall(r'[\u0E00-\u0E7F]+|\w{2,}', query.lower()))
     
     relevant_schema = {}
     for table, info in schema.items():

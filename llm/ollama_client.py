@@ -2,18 +2,19 @@ import httpx
 import json
 import asyncio
 import logging
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, AsyncGenerator, Any
 from config import OLLAMA_ENDPOINT_1, OLLAMA_ENDPOINT_2, MODEL_NAME, SQL_MODEL, LLM_TIMEOUT
+from core.exceptions import LLMError
 
 logger = logging.getLogger(__name__)
 
-_RETRY_ATTEMPTS = 3
-_RETRY_BACKOFF  = [1.0, 2.0, 4.0]
+_RETRY_ATTEMPTS: int = 3
+_RETRY_BACKOFF: List[float] = [1.0, 2.0, 4.0]
 
 
 class OllamaClient:
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.client = httpx.AsyncClient(timeout=LLM_TIMEOUT)
 
     async def generate(self, prompt: str, tokens: int = 300, model: Optional[str] = None, temperature: float = 0.3, top_p: float = 0.9, top_k: int = 40, repeat_penalty: float = 1.1) -> str:
@@ -55,9 +56,9 @@ class OllamaClient:
             if attempt < _RETRY_ATTEMPTS - 1:
                 await asyncio.sleep(_RETRY_BACKOFF[attempt])
 
-        raise RuntimeError(f"LLM unavailable after {_RETRY_ATTEMPTS} attempts: {last_error}")
+        raise LLMError(f"Ollama ไม่พร้อมทำงานหลังจากพยายาม {_RETRY_ATTEMPTS} ครั้ง", details=str(last_error))
 
-    async def stream(self, prompt: str, model: Optional[str] = None, tokens: int = 500, stop: Optional[List[str]] = None, temperature: float = 0.3, top_p: float = 0.8, top_k: int = 40, repeat_penalty: float = 1.1):
+    async def stream(self, prompt: str, model: Optional[str] = None, tokens: int = 500, stop: Optional[List[str]] = None, temperature: float = 0.3, top_p: float = 0.8, top_k: int = 40, repeat_penalty: float = 1.1) -> AsyncGenerator[str, None]:
         """Streaming generate — yield tokens ทีละตัว"""
         payload = {
             "model":   model or MODEL_NAME,
@@ -97,13 +98,13 @@ class OllamaClient:
                 if attempt < _RETRY_ATTEMPTS - 1:
                     await asyncio.sleep(_RETRY_BACKOFF[attempt])
                 else:
-                    raise RuntimeError(f"LLM stream unavailable: {e}") from e
+                    raise LLMError(f"Ollama Stream สัญญาณขาดหาย: {e}") from e
 
             except httpx.HTTPStatusError as e:
                 logger.error("LLM stream HTTP %s", e.response.status_code)
-                raise
+                raise LLMError(f"Ollama ตอบกลับด้วย HTTP Error {e.response.status_code}")
 
-    async def chat_stream(self, messages: List[Dict], model: Optional[str] = None, tokens: int = 2000, temperature: float = 0.1):
+    async def chat_stream(self, messages: List[Dict[str, str]], model: Optional[str] = None, tokens: int = 2000, temperature: float = 0.1) -> AsyncGenerator[str, None]:
         """Streaming chat — ใช้สำหรับ Insight / Conversation (ฉลาดกว่าเพราะมี Chat Template)"""
         url = OLLAMA_ENDPOINT_2
         payload = {
@@ -134,4 +135,6 @@ class OllamaClient:
                 if attempt < _RETRY_ATTEMPTS - 1:
                     await asyncio.sleep(_RETRY_BACKOFF[attempt])
                 else:
+                    raise LLMError(f"Ollama Chat สัญญาณขาดหาย: {e}") from e
+            else:
                     raise RuntimeError(f"LLM chat_stream unavailable: {e}") from e
