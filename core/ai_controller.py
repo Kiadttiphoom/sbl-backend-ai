@@ -6,7 +6,7 @@ from typing import AsyncGenerator, Dict, Any, List
 from core.intent import detect_intent
 from security.injection import detect_prompt_injection
 from security.business_rules import validate_business_logic
-from db.templates import render_query, SQL_TEMPLATES
+from db.templates import SQL_TEMPLATES, TEMPLATE_DESCRIPTIONS, TEMPLATE_EXAMPLES, render_query
 from db.fetch import fetch_data
 from services.formatter import engine
 from llm.ollama_client import OllamaClient
@@ -34,8 +34,16 @@ class AIController:
         Uses the LLM to choose the correct SQL template and extract parameters.
         Returns a dictionary: {"template_name": "...", "params": {...}}
         """
-        # Prompt the 7B model to output JSON only
-        template_list = "\n".join([f"- {k}" for k in SQL_TEMPLATES.keys()])
+        # Build template list with descriptions and examples
+        template_info_list = []
+        for template_name in SQL_TEMPLATES.keys():
+            desc = TEMPLATE_DESCRIPTIONS.get(template_name, "")
+            examples = TEMPLATE_EXAMPLES.get(template_name, [])
+            example_str = f"\n  Example: {examples[0]}" if examples else ""
+            template_info_list.append(f"- {template_name}: {desc}{example_str}")
+        
+        template_list = "\n".join(template_info_list)
+        
         prompt = f"""
 Choose the correct SQL template for this question based on these options:
 {template_list}
@@ -89,19 +97,24 @@ If you cannot find a matching template, output {{"template_name": "UNKNOWN", "pa
                 if template_name != "UNKNOWN" and template_name in SQL_TEMPLATES:
                     # RENDER TEMPLATE
                     sql, _ = render_query(template_name, params)
+                    logger.info(f"📊 Template: {template_name}")
+                    logger.info(f"🔍 SQL Query: {sql}")
+                    logger.info(f"📋 Parameters: {params}")
                     yield self._event("sql", sql=sql)
                     
                     # RUN DB
                     try:
                         db_results = fetch_data(sql)
                         if db_results:
+                            logger.info(f"✅ ได้ข้อมูล: {len(db_results)} แถว")
                             yield self._event("data_count", count=len(db_results))
                             context_str = engine.format_db_results(db_results, self.schema, question=q)
                             stats_str = engine.get_summary_stats(db_results)
                         else:
+                            logger.warning(f"⚠️  ไม่พบข้อมูลจาก SQL query")
                             context_str = "ไม่มีข้อมูลจากฐานข้อมูล"
                     except Exception as e:
-                        logger.error(f"Database template execution error: {e}")
+                        logger.error(f"❌ Database template execution error: {e}")
                         context_str = f"เกิดข้อผิดพลาดในการดึงข้อมูล: {e}"
                 else:
                     # Fallback if no template matches
@@ -114,16 +127,23 @@ If you cannot find a matching template, output {{"template_name": "UNKNOWN", "pa
 
             # 4. Final Insight Generation
             yield self._event("status", content="กำลังสรุปคำตอบ...")
+            logger.info(f"🤖 AI ผู้ช่วยสร้างคำตอบ...")
             
             sys_msg = "คุณคือ AI ผู้ช่วยวิเคราะห์ข้อมูล"
             if context_str:
+                logger.info(f"📊 Context ที่ส่งให้ AI:\n{context_str[:300]}...")
                 sys_msg += f"\nคุณได้รับข้อมูลตารางแล้ว ห้ามก็อปปี้ตาราง ให้วิเคราะห์จากข้อมูลนี้:\n{context_str}\nสถิติ:{stats_str}"
+            else:
+                logger.warning(f"⚠️ context_str ว่างเปล่า! ไม่มีข้อมูลที่ส่งให้ AI")
                 
             messages = [{"role": "system", "content": sys_msg}] + history + [{"role": "user", "content": q}]
             
+            response_text = ""
             async for chunk in self.ollama.chat_stream(messages, model=MODEL_NAME):
+                response_text += chunk
                 yield self._event("content", content=chunk)
-
+            
+            logger.info(f"💬 AI ตอบมา: {response_text[:100]}...") if len(response_text) > 100 else logger.info(f"💬 AI ตอบมา: {response_text}")
             yield self._event("done", time=round(time.time() - start_time, 2))
 
         except SecurityError as e:

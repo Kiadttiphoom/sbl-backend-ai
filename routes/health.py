@@ -2,6 +2,8 @@ import httpx
 import logging
 from fastapi import APIRouter
 from db.connector import get_connection
+from db.templates import reload_queries
+from core.memory import reload as reload_training
 from config import OLLAMA_ENDPOINT_1
 
 logger = logging.getLogger(__name__)
@@ -39,3 +41,43 @@ async def health_check():
         status["status"] = "degraded"
     
     return status
+
+
+@router.post("/reload-queries")
+async def reload_queries_endpoint():
+    """Hot-reload SQL templates from db/queries.json without restart."""
+    try:
+        success = reload_queries()
+        if success:
+            return {
+                "status": "ok",
+                "message": "SQL templates reloaded successfully from queries.json"
+            }
+        else:
+            return {
+                "status": "error",
+                "message": "Failed to reload queries from JSON"
+            }
+    except Exception as e:
+        logger.error(f"Reload failed: {e}")
+        return {
+            "status": "error",
+            "message": str(e)
+        }
+
+
+@router.post("/reload-examples")
+async def reload_examples_endpoint():
+    """Hot-reload few-shot examples without restart."""
+    try:
+        reload_training()
+        return {
+            "status": "ok",
+            "message": "Few-shot examples reloaded successfully"
+        }
+    except Exception as e:
+        logger.error(f"Reload failed: {e}")
+        return {
+            "status": "error",
+            "message": str(e)
+        }
