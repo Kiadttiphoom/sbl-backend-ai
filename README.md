@@ -44,7 +44,7 @@
 ## 🛠️ Tech Stack
 
 - **Framework**: FastAPI (Python)
-- **LLM Engine**: Ollama (Llama 3 / Mistral / DeepSeek)
+- **LLM Engine**: Ollama (Qwen 2.5-Coder 3B/7B)
 - **Database**: SQL Server 2008
 - **ORM/Tooling**: Python-dotenv, PyODBC
 
