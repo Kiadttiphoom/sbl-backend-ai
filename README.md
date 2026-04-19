@@ -22,6 +22,7 @@
 ![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)
 ![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi)
 ![Ollama](https://img.shields.io/badge/Ollama-LLM-blue?style=for-the-badge)
+![Qwen 2.5-Coder](https://img.shields.io/badge/Qwen%202.5--Coder-AI-purple?style=for-the-badge)
 
 ### 🗄️ Database
 ![MicrosoftSQLServer](https://img.shields.io/badge/Microsoft%20SQL%20Server-CC2927?style=for-the-badge&logo=microsoft%20sql%20server&logoColor=white)
