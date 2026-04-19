@@ -1,48 +1,139 @@
 {
-  "LSM007":{
-    "description": "ตาราง ข้อมูลผู้ยึด",
+  "_semantic_guide": {
+    "purpose": "SBL hire-purchase (เช่าซื้อ) financial system",
+    "primary_table": "LSM010",
+    "join_rule": "ต้องการชื่อพนักงาน/ผู้ยึด → JOIN LSM007 ON LSM010.FolID = LSM007.FolID",
+    "sql_dialect": "SQL Server 2008 — ใช้ TOP N ไม่ใช่ LIMIT, ใช้ CAST(col AS MONEY) สำหรับ numeric compare",
+    "common_intents": {
+      "ยอดหนี้รวม / สรุป": "SUM(Bal), COUNT(*) GROUP BY OLID หรือ FolID",
+      "ลูกหนี้ค้างชำระ": "WHERE Credit > 0 OR Interest > 0",
+      "สถานะ Aging": "WHERE Stat2 IN ('B','C','D','F','G','H') — ดู stat2_groups",
+      "ปิดบัญชี / จ่ายจบ": "WHERE AccStat IN ('1','2')",
+      "ยึดรถ": "WHERE AccStat = '3'",
+      "ติดคดี": "WHERE Stat2 = 'G' OR AccStatLegal IS NOT NULL",
+      "Watch List": "WHERE Watchlist = 'W'",
+      "ปรับปรุงหนี้": "WHERE AccStat = '7'",
+      "ลูกหนี้รายพนักงาน": "JOIN LSM007, GROUP BY LSM007.FolID, LSM007.FolName",
+      "กรองสาขา": "WHERE OLID = '<branch_code>'"
+    },
+    "stat2_groups": {
+      "กลุ่มเตือน (1-3)": [
+        "B",
+        "C",
+        "D"
+      ],
+      "กลุ่มค้างทั้งหมด": [
+        "B",
+        "C",
+        "D",
+        "F"
+      ],
+      "กลุ่มเร่งรัดทั้งหมด": [
+        "B",
+        "C",
+        "D",
+        "F",
+        "G"
+      ],
+      "ปกติ": [
+        "A"
+      ],
+      "ติดคดี": [
+        "G"
+      ],
+      "ตัดหนี้": [
+        "H"
+      ]
+    },
+    "amount_fields": {
+      "ยอดหนี้คงเหลือ": "Bal",
+      "ค่างวดค้าง": "Credit",
+      "ดอกเบี้ยค้าง": "Interest",
+      "ค่าทวงถาม": "Fee",
+      "ยอดรวมค้างทั้งหมด": "Credit + Interest + Fee",
+      "ภาษีคงเหลือ": "BalTax"
+    }
+  },
+  "LSM007": {
+    "description": "ข้อมูลพนักงาน/ผู้ยึด (Employee / Collection Officer)",
+    "business_role": "ตารางพนักงานผู้ดูแลสัญญา ใช้ JOIN กับ LSM010.FolID เพื่อดึงชื่อ",
     "columns": {
       "FolID": {
-        "desc": "รหัสผู้ยึด",
+        "desc": "รหัสพนักงาน/ผู้ยึด",
+        "business_name": "รหัสพนักงาน",
         "type": "nvarchar(6)",
         "is_pk": true,
+        "join_to": "LSM010.FolID",
         "example": "000001"
       },
       "FolName": {
-        "desc": "ชื่อผู้ยึด",
+        "desc": "ชื่อ-นามสกุลพนักงาน",
+        "business_name": "ชื่อพนักงาน",
         "type": "nvarchar(100)",
+        "keywords": [
+          "ชื่อ",
+          "พนักงาน",
+          "ผู้ดูแล",
+          "ใคร"
+        ],
         "example": "สมชาย ใจดี"
       },
       "Status": {
-        "desc": "สถานะผู้ยึด",
+        "desc": "สถานะพนักงาน",
         "type": "nvarchar(2)",
         "options": {
-          "A": "Active",
-          "I": "Inactive"
+          "A": "ทำงานอยู่",
+          "I": "ลาออกแล้ว"
         },
         "example": "A"
       },
       "FolAddr": {
-        "desc": "ที่อยู่ผู้ยึด",
-        "type": "nvarchar(180)",
-        "example": "123 หมู่ 4 ตำบลในเมือง อำเภอเมือง จังหวัดกรุงเทพมหานคร 10100"
+        "desc": "ที่อยู่พนักงาน",
+        "type": "nvarchar(180)"
       },
       "FolTel": {
-        "desc": "เบอร์โทรศัพท์ผู้ยึด",
-        "type": "nvarchar(40)",
-        "example": "081-234-5678"
+        "desc": "เบอร์โทรพนักงาน",
+        "type": "nvarchar(40)"
       }
     }
   },
   "LSM010": {
-    "description": "ตาราง Master ข้อมูลสัญญาเช่าซื้อ (Main Contract Master Table) *สำคัญ: หากต้องการหาข้อมูลพนักงานหรือผู้ยึด ต้อง JOIN LSM007 ON LSM007.FolID = LSM010.FolID เสมอ*",
+    "description": "ตาราง Master สัญญาเช่าซื้อ (Hire-Purchase Contract Master)",
+    "business_role": "ตารางหลักของระบบ ทุก query เริ่มจากตารางนี้",
     "columns": {
       "OLID": {
-        "desc": "รหัส สาขา ที่ขาย (คำค้น: สาขา)",
+        "desc": "รหัสสาขา",
+        "business_name": "สาขา",
         "type": "nvarchar(2)",
         "is_pk": true,
         "is_mandatory": true,
-        "example": "0S"
+        "keywords": [
+          "สาขา",
+          "branch",
+          "OLID"
+        ],
+        "filter_note": "กรองสาขาด้วย WHERE OLID = '<code>' เช่น WHERE OLID = 'MN'",
+        "example": "MN",
+        "known_values": "0S, 1F, 1S, 2S, 3S, 5F, 5K, 6B, 6K, 7S, 9S, AA, AC, AI, AJ, AK, Aก, Aข, Aค, Aง, BA, BC, BD, Bก, CB, CC, CD, CE, CF, Cก, D1, D2, D3, DA, DC, DD, DG, DH, DL, DO, DP, DT, DV, DW, DX, DY, DZ, Dก, Dข, Dค, Dง, Dจ, Dฉ, Dช, EA, EB, ED, EF, EG, EI, Eก, Eข, GB, GC, GD, GF, GG, GH, GI, GJ, GK, GL, Gก, Gค, Gง, Gจ, Gฉ, Gช, Gฌ, HA, IA, IB, IC, IF, JA, JB, JC, JD, JE, JJ, JK, JL, JM, K3, KA, KB, Kก, MA, MC, MD, ME, MF, MG, MH, MI, MJ, MK, ML, MM, MN, MO, MP, MQ, MS, Mก, Mข, Mค, Mง, Mจ, Mฉ, Mช, Mซ, Mฌ, Mญ, Mฎ, Mฐ, Mฒ, Mณ, Mด, Mถ, Mท, Mบ, NC, ND, NE, NF, NG, NH, NK, NL, Nข, Nค, Nง, Nจ, Nฉ, Nช, Nฌ, Nญ, Nฎ, OB, PA, PB, PC, PF, PG, Pก, RD, RH, RJ, S1, S2, S4, S5, S7, S8, S9, SA, SB, SD, TK, TL, TM, TN, TO, TQ, TT, TW, Tก, Tข, Tค, Tฆ, Tง, Tจ, U1, UA, Uก, ZZ, กก, กข, กค, กจ"
+      },
+      "AccNo": {
+        "desc": "เลขที่สัญญา",
+        "business_name": "เลขสัญญา",
+        "type": "nvarchar(15)",
+        "is_pk": true,
+        "is_mandatory": true,
+        "keywords": [
+          "เลขสัญญา",
+          "สัญญา",
+          "AccNo"
+        ],
+        "example": "0SJ0001INN"
+      },
+      "AccNoB": {
+        "desc": "เลขที่สัญญาระบบเก่า (Barcode)",
+        "business_name": "เลขสัญญาเดิม",
+        "type": "nvarchar(20)",
+        "is_pk": true
       },
       "InvNo": {
         "desc": "เลขที่ใบส่งของ",
@@ -50,130 +141,151 @@
         "is_pk": true,
         "example": "INV-12345"
       },
-      "AccNo": {
-        "desc": "เลขที่สัญญา",
-        "type": "nvarchar(15)",
-        "is_pk": true,
-        "is_mandatory": true,
-        "example": "0SJ0001INN"
-      },
-      "EngNo": {
-        "desc": "หมายเลขเครื่อง",
-        "type": "nvarchar(20)"
-      },
       "CusId": {
         "desc": "รหัสลูกค้า",
+        "business_name": "รหัสลูกค้า",
         "type": "nvarchar(10)",
-        "is_mandatory": true
+        "is_mandatory": true,
+        "keywords": [
+          "ลูกค้า",
+          "cusid"
+        ]
+      },
+      "FolID": {
+        "desc": "รหัสพนักงานผู้ดูแลสัญญา — JOIN LSM007 เพื่อดึงชื่อ",
+        "business_name": "รหัสพนักงาน",
+        "type": "nvarchar(6)",
+        "join_note": "JOIN LSM007 ON LSM010.FolID = LSM007.FolID เพื่อดึง FolName"
+      },
+      "ColID": {
+        "desc": "รหัสพนักงานติดตามหนี้",
+        "business_name": "พนักงานติดตามหนี้",
+        "type": "nvarchar(3)"
+      },
+      "EngNo": {
+        "desc": "หมายเลขเครื่องยนต์/ตัวถัง",
+        "type": "nvarchar(20)"
+      },
+      "BarCode": {
+        "desc": "บาร์โค้ดสัญญา",
+        "type": "nvarchar(20)"
       },
       "Supp1": {
-        "desc": "รหัสผู้ค้ำประกัน 1",
+        "desc": "รหัสผู้ค้ำประกันคนที่ 1",
         "type": "nvarchar(10)"
       },
       "Supp2": {
-        "desc": "รหัสผู้ค้ำประกัน 2",
+        "desc": "รหัสผู้ค้ำประกันคนที่ 2",
         "type": "nvarchar(10)"
       },
       "AccDate": {
         "desc": "วันที่ทำสัญญา",
+        "business_name": "วันทำสัญญา",
+        "type": "nvarchar(8)",
+        "format": "YYYYMMDD พ.ศ. เช่น 25670101",
+        "filter_note": "เปรียบเทียบด้วย CONVERT หรือ string compare เช่น AccDate >= '25670101'"
+      },
+      "FPDate": {
+        "desc": "วันนัดชำระงวดแรก",
+        "type": "nvarchar(8)",
+        "format": "YYYYMMDD"
+      },
+      "EndAcc": {
+        "desc": "วันครบกำหนดสัญญา",
+        "business_name": "วันหมดสัญญา",
         "type": "nvarchar(8)",
         "format": "YYYYMMDD",
-        "remark": "พ.ศ. (เช่น 25670101)"
+        "keywords": [
+          "ใกล้หมด",
+          "ครบกำหนด",
+          "expire"
+        ]
       },
-      "LDown": {
-        "desc": "ดาวน์ (ไม่รวม VAT)",
-        "type": "money"
+      "StartDate": {
+        "desc": "วันเริ่มต้นปรับปรุงหนี้",
+        "type": "nvarchar(8)",
+        "format": "YYYYMMDD"
       },
-      "NLot": {
-        "desc": "จำนวนงวดที่ผ่อนทั้งหมด",
-        "type": "int"
+      "EndDate": {
+        "desc": "วันสิ้นสุดปรับปรุงหนี้",
+        "type": "nvarchar(8)",
+        "format": "YYYYMMDD"
+      },
+      "CancelDate": {
+        "desc": "วันที่ยกเลิกสัญญา",
+        "type": "nvarchar(8)",
+        "format": "YYYYMMDD"
+      },
+      "StopVatDate": {
+        "desc": "วันที่หยุดคิดภาษี",
+        "type": "nvarchar(8)",
+        "format": "YYYYMMDD"
+      },
+      "LastCal": {
+        "desc": "วันคำนวณดอกเบี้ยล่าสุด",
+        "type": "nvarchar(8)",
+        "format": "YYYYMMDD"
+      },
+      "LastPay": {
+        "desc": "วันชำระเงินล่าสุด",
+        "type": "nvarchar(8)",
+        "format": "YYYYMMDD"
+      },
+      "LawDate": {
+        "desc": "วันที่ฟ้องคดี",
+        "business_name": "วันฟ้อง",
+        "type": "nvarchar(8)",
+        "format": "YYYYMMDD พ.ศ.",
+        "remark": "มีค่าเมื่อ Stat2 = G",
+        "keywords": [
+          "ฟ้อง",
+          "คดี",
+          "ติดคดี"
+        ]
       },
       "LPrice": {
-        "desc": "ยอดวงเงิน / ราคารถ (ไม่รวม VAT)",
-        "type": "money"
-      },
-      "HPrice": {
-        "desc": "ราคาผ่อนทั้งหมด (ไม่รวม VAT)",
+        "desc": "วงเงิน/ราคารถ (ไม่รวม VAT)",
+        "business_name": "ราคารถ",
         "type": "money"
       },
       "SPrice": {
         "desc": "ราคาเงินสด (ไม่รวม VAT)",
         "type": "money"
       },
-      "FPDate": {
-        "desc": "วันที่นัดชำระงวดแรก",
-        "type": "nvarchar(8)",
-        "format": "YYYYMMDD"
-      },
-      "EndAcc": {
-        "desc": "วันที่ครบกำหนดสัญญา",
-        "type": "nvarchar(8)",
-        "format": "YYYYMMDD"
-      },
-      "ColID": {
-        "desc": "รหัสพนักงานติดตามหนี้",
-        "type": "nvarchar(3)"
-      },
-      "LCredit": {
-        "desc": "ค่างวดค้าง ณ สิ้นเดือนก่อนหน้า (รวม VAT)",
+      "HPrice": {
+        "desc": "ราคาผ่อนทั้งหมด (ไม่รวม VAT)",
         "type": "money"
       },
-      "Range": {
-        "desc": "ช่วงอายุหนี้ ณ เดือนก่อนหน้า (เดือน) (คำค้น: ค้าง)",
-        "type": "nvarchar(1)"
-      },
-      "Credit": {
-        "desc": "ค่างวดค้างชำระ (ไม่รวม VAT) (คำค้น: ค้าง)",
+      "LLPrice": {
+        "desc": "ราคาผ่อนรวม VAT",
         "type": "money"
       },
-      "CreTax": {
-        "desc": "ภาษีค้างชำระ",
+      "LDown": {
+        "desc": "เงินดาวน์ (ไม่รวม VAT)",
+        "business_name": "ดาวน์",
         "type": "money"
       },
-      "Interest": {
-        "desc": "ดอกเบี้ยค้างชำระ (คำค้น: ค้าง)",
-        "type": "money"
-      },
-      "Fee": {
-        "desc": "ค่าทวงถามค้างชำระ (คำค้น: ค้าง)",
-        "type": "money"
-      },
-      "LastCal": {
-        "desc": "วันที่คำนวณดอกเบี้ยครั้งสุดท้าย",
-        "type": "nvarchar(8)",
-        "format": "YYYYMMDD"
-      },
-      "Bal": {
-        "desc": "ยอดหนี้คงเหลือปัจจุบัน (ไม่รวม VAT) (คำค้น: จ่าย,ยอดปิด)",
-        "type": "money"
-      },
-      "BalTax": {
-        "desc": "ภาษีคงเหลือ",
-        "type": "money"
-      },
-      "NowLot": {
-        "desc": "งวดปัจจุบันตามสัญญา (ใช้คำนวณเบี้ยปรับ)",
+      "NLot": {
+        "desc": "จำนวนงวดทั้งหมดตามสัญญา",
+        "business_name": "จำนวนงวด",
         "type": "int"
       },
-      "LastPay": {
-        "desc": "วันที่ชำระเงินสุดท้าย",
-        "type": "nvarchar(8)",
-        "format": "YYYYMMDD"
+      "NowLot": {
+        "desc": "งวดปัจจุบันตามสัญญา",
+        "type": "int"
       },
-      "TTVat": {
-        "desc": "ยอดมูลค่าภาษีค้างทั้งหมด",
-        "type": "money"
-      },
-      "TTInt": {
-        "desc": "ยอดดอกเบี้ยคงค้างทั้งหมด",
-        "type": "money"
-      },
-      "CrInt": {
-        "desc": "อัตราดอกเบี้ยค้างชำระ (%)",
-        "type": "money"
+      "RLot": {
+        "desc": "งวดที่ค้างชำระ",
+        "business_name": "งวดค้าง",
+        "type": "int",
+        "keywords": [
+          "ค้างกี่งวด",
+          "งวดค้าง"
+        ]
       },
       "NowPrs": {
-        "desc": "ค่างวดประจำงวดปัจจุบัน (ไม่รวม VAT)",
+        "desc": "ค่างวดประจำ (ไม่รวม VAT)",
+        "business_name": "ค่างวด",
         "type": "money"
       },
       "NowTax": {
@@ -181,21 +293,190 @@
         "type": "money"
       },
       "HPint": {
-        "desc": "อัตราดอกเบี้ยรายปี",
+        "desc": "อัตราดอกเบี้ยรายปี (%)",
+        "business_name": "ดอกเบี้ยต่อปี",
+        "type": "money"
+      },
+      "CrInt": {
+        "desc": "อัตราดอกเบี้ยค้างชำระ (%)",
+        "type": "money"
+      },
+      "Bal": {
+        "desc": "ยอดหนี้คงเหลือปัจจุบัน (ไม่รวม VAT)",
+        "business_name": "ยอดหนี้คงเหลือ",
+        "type": "money",
+        "keywords": [
+          "ยอดหนี้",
+          "ยอดคงเหลือ",
+          "ยอดปิด",
+          "จ่ายเท่าไหร่"
+        ],
+        "filter_note": "ใช้ CAST(Bal AS MONEY) > 0 เพื่อกรองสัญญาที่ยังมีหนี้"
+      },
+      "BalTax": {
+        "desc": "ภาษีคงเหลือ",
+        "type": "money"
+      },
+      "Credit": {
+        "desc": "ค่างวดค้างชำระ (ไม่รวม VAT)",
+        "business_name": "ค่างวดค้าง",
+        "type": "money",
+        "keywords": [
+          "ค้างชำระ",
+          "ค้างค่างวด",
+          "ค่างวดค้าง"
+        ],
+        "filter_note": "CAST(Credit AS MONEY) > 0"
+      },
+      "CreTax": {
+        "desc": "ภาษีค้างชำระ",
+        "type": "money"
+      },
+      "LCredit": {
+        "desc": "ค่างวดค้าง ณ สิ้นเดือนก่อน (รวม VAT)",
+        "type": "money"
+      },
+      "Interest": {
+        "desc": "ดอกเบี้ยค้างชำระ",
+        "business_name": "ดอกเบี้ยค้าง",
+        "type": "money",
+        "keywords": [
+          "ดอกเบี้ยค้าง",
+          "ดอกเบี้ย"
+        ],
+        "filter_note": "CAST(Interest AS MONEY) > 25000 — ต้องใช้ CAST เสมอ"
+      },
+      "InterestO": {
+        "desc": "ดอกเบี้ยค้างก่อนปรับปรุง",
+        "type": "money"
+      },
+      "InterestC": {
+        "desc": "ดอกเบี้ยค้างหลังปรับปรุง",
+        "type": "money"
+      },
+      "RInt": {
+        "desc": "ดอกเบี้ยค้างสะสม",
+        "type": "money"
+      },
+      "TTInt": {
+        "desc": "ดอกเบี้ยคงค้างทั้งหมด",
+        "type": "money"
+      },
+      "OTTInt": {
+        "desc": "ดอกเบี้ยคงค้างเดิม",
+        "type": "money"
+      },
+      "DebtInt": {
+        "desc": "ดอกเบี้ยหนี้สูญ",
+        "type": "money"
+      },
+      "Fee": {
+        "desc": "ค่าทวงถามค้างชำระ",
+        "business_name": "ค่าทวงถาม",
+        "type": "money",
+        "keywords": [
+          "ค่าทวง",
+          "ค่าทวงถาม"
+        ]
+      },
+      "FeeO": {
+        "desc": "ค่าทวงถามก่อนปรับปรุง",
+        "type": "money"
+      },
+      "FeeC": {
+        "desc": "ค่าทวงถามหลังปรับปรุง",
+        "type": "money"
+      },
+      "CollectionFee": {
+        "desc": "ค่า Collection Fee",
+        "type": "money"
+      },
+      "CollectionFeeO": {
+        "desc": "ค่า Collection Fee เดิม",
+        "type": "money"
+      },
+      "TTVat": {
+        "desc": "ภาษีค้างทั้งหมด (VAT)",
         "type": "money"
       },
       "StopVat": {
-        "desc": "หยุดคิดภาษีหรือไม่",
+        "desc": "หยุดคิด VAT หรือไม่",
         "type": "nvarchar(1)",
         "options": {
           "Y": "หยุดคิดภาษี",
-          "N": "ไม่หยุดคิดภาษี"
+          "N": "ยังคิดภาษีปกติ"
         }
       },
+      "PayVat": {
+        "desc": "ภาษีที่ชำระแล้ว",
+        "type": "money"
+      },
+      "VerifyAmt": {
+        "desc": "ยอดยืนยันหนี้ (Verify)",
+        "type": "money"
+      },
+      "VerifyAmtO": {
+        "desc": "ยอดยืนยันหนี้เดิม",
+        "type": "money"
+      },
+      "Iamount_Stac": {
+        "desc": "ยอดเงินงวดที่ค้างอยู่ในปัจจุบัน",
+        "type": "money"
+      },
+      "Iamount_PStac": {
+        "desc": "ยอดเงินงวดที่ค้างอยู่ก่อนหน้า",
+        "type": "money"
+      },
+      "Iamount_old": {
+        "desc": "ยอดเงินงวดเดิม",
+        "type": "money"
+      },
+      "Famount_PStac": {
+        "desc": "ค่าธรรมเนียมค้างก่อนหน้า",
+        "type": "money"
+      },
+      "Oamount_PStac": {
+        "desc": "ค่าอื่นๆ ค้างก่อนหน้า",
+        "type": "money"
+      },
+      "Oamount_PStac_Cal": {
+        "desc": "ค่าอื่นๆ ค้างก่อนหน้า (คำนวณ)",
+        "type": "money"
+      },
+      "Amt_Disperlot": {
+        "desc": "ส่วนลดต่องวด",
+        "type": "money"
+      },
+      "Amt_Dis": {
+        "desc": "ส่วนลดปัจจุบัน",
+        "type": "money"
+      },
+      "SumAmt_Dis": {
+        "desc": "ส่วนลดรวม",
+        "type": "money"
+      },
+      "Range": {
+        "desc": "ช่วงอายุหนี้ (เดือน) ณ เดือนก่อนหน้า",
+        "business_name": "อายุหนี้",
+        "type": "nvarchar(1)",
+        "keywords": [
+          "อายุหนี้",
+          "ค้างมาแล้วกี่เดือน"
+        ]
+      },
       "AccStat": {
-        "desc": "สถานะสัญญา (คำค้น: จ่าย, ฟ้อง, คดี)",
+        "desc": "สถานะสัญญา",
+        "business_name": "สถานะสัญญา",
         "type": "nvarchar(1)",
         "is_mandatory": true,
+        "keywords": [
+          "สถานะ",
+          "ปิดบัญชี",
+          "ยึดรถ",
+          "จ่ายจบ",
+          "ยกเลิก"
+        ],
+        "filter_note": "สัญญาที่ active = WHERE AccStat = ' ' (space), ปิดแล้ว = '1' หรือ '2'",
         "options": {
           " ": "ปกติ (Active)",
           "1": "จ่ายจบ (Completed)",
@@ -206,166 +487,57 @@
           "7": "ปรับปรุงหนี้ (Restructured)"
         }
       },
-      "PayVat": {
-        "desc": "มูลค่าสินค้าที่ออกใบกำกับภาษีแล้ว",
-        "type": "money"
-      },
-      "RLot": {
-        "desc": "จำนวนงวดที่เหลือ",
-        "type": "int"
-      },
-      "RInt": {
-        "desc": "ดอกเบี้ยเช่าซื้อที่เหลือ",
-        "type": "money"
-      },
-      "OTTInt": {
-        "desc": "ดอกเบี้ยตัดกรณีลดหนี้ตามเกณฑ์ สคบ.",
-        "type": "money"
+      "AccStatLegal": {
+        "desc": "สถานะบัญชีพิจารณา NCB (30=ปกติ, 31=ผิดนัด, 32=ยกเลิก)",
+        "business_name": "สถานะ NCB",
+        "type": "varchar(4)",
+        "keywords": [
+          "NCB",
+          "Credit Bureau"
+        ]
       },
       "Stat2": {
-        "desc": "สถานะลูกหนี้ Aging (Stat2) ใช้ mapping code เท่านั้น เช่น A=สูญ ปกติ, B=เตือนครั้งที่ 1, C=เตือนครั้งที่ 2, D=เตือนครั้งที่ 3 และยกเลิก, F=ครบกำหนด 35 วัน, G=ติดคดี, H=ตัดหนี้",
+        "desc": "สถานะลูกหนี้ Aging",
+        "business_name": "สถานะ Aging",
         "type": "nvarchar(1)",
         "is_mandatory": true,
+        "keywords": [
+          "aging",
+          "เตือน",
+          "ค้าง",
+          "บอกเลิก",
+          "ติดคดี",
+          "ตัดหนี้"
+        ],
+        "critical_rule": "ใช้ code ตัวอักษรเท่านั้น — ห้ามใช้ตัวเลข",
+        "group_hint": "กลุ่มเตือน = IN('B','C','D'), ค้างทั้งหมด = IN('B','C','D','F')",
         "options": {
-          "A": "ปกติ",
-          "B": "เตือนครั้งที่ 1",
-          "C": "เตือนครั้งที่ 2",
-          "D": "เตือนครั้งที่ 3 และยกเลิก",
-          "F": "ครบกำหนดบอกเลิก 35 วัน",
-          "G": "ยกเลิกสัญญาลูกค้าติดคดี",
-          "H": "ตัดหนี้"
+          "A": "ปกติ — ไม่ค้างชำระ",
+          "B": "เตือนครั้งที่ 1 — ค้าง 1-30 วัน",
+          "C": "เตือนครั้งที่ 2 — ค้าง 31-60 วัน",
+          "D": "เตือนครั้งที่ 3 — ค้าง 61-90 วัน",
+          "F": "ครบกำหนดบอกเลิก 35 วัน — ค้างเกิน 90 วัน",
+          "G": "ติดคดี — มีการฟ้องร้อง",
+          "H": "ตัดหนี้สูญ — Write-off"
         }
       },
-      "CancelDate": {
-        "desc": "วันที่บอกเลิกสัญญา",
-        "type": "nvarchar(8)",
-        "format": "YYYYMMDD"
-      },
-      "StopVatDate": {
-        "desc": "วันที่หยุด VAT AUTO",
-        "type": "nvarchar(8)",
-        "format": "YYYYMMDD"
-      },
-      "AccNo_alias": {
-        "desc": "เลขที่สัญญาจากระบบ SICCO",
-        "type": "nvarchar(15)"
-      },
-      "Iamount_Stac": {
-        "desc": "ดอกเบี้ยปรับค้างรับ",
-        "type": "money"
-      },
-      "Iamount_PStac": {
-        "desc": "ดอกเบี้ยปรับค้างรับสะสม",
-        "type": "money"
-      },
-      "Famount_PStac": {
-        "desc": "ค่าทวงถามค้างรับสะสม",
-        "type": "money"
-      },
-      "Oamount_PStac": {
-        "desc": "ค่าอื่นๆ ค้างรับสะสม",
-        "type": "money"
-      },
-      "Amt_Disperlot": {
-        "desc": "จำนวนงวดที่ให้คูปองส่วนลด",
-        "type": "money"
-      },
-      "Amt_Dis": {
-        "desc": "จำนวนเงินคูปองส่วนลดต่อหนึ่งงวด",
-        "type": "money"
-      },
-      "StartDate": {
-        "desc": "วันที่เริ่มใช้คูปอง",
-        "type": "nvarchar(8)",
-        "format": "YYYYMMDD"
-      },
-      "EndDate": {
-        "desc": "วันที่สิ้นสุดคูปอง",
-        "type": "nvarchar(8)",
-        "format": "YYYYMMDD"
-      },
-      "SumAmt_Dis": {
-        "desc": "จำนวนเงินคูปองจ่ายสะสม",
-        "type": "money"
-      },
-      "FolID": {
-        "desc": "รหัสผู้จัด/ผู้ยึด (พนักงานที่ดูแล)",
-        "type": "nvarchar(3)"
-      },
-      "Iamount_old": {
-        "desc": "ดอกเบี้ยปรับเก่า",
-        "type": "money"
-      },
-      "BarCode": {
-        "desc": "Barcode ระบบ Counter service",
-        "type": "varchar(50)"
-      },
-      "Oamount_PStac_Cal": {
-        "desc": "ดอกเบี้ยค้างสะสม คำนวณใหม่ (คงเหลือ)",
-        "type": "money"
-      },
-      "AccStatLegal": {
-        "desc": "สถานะบัญชีพิจารณา NCB (30,31,32)",
-        "type": "varchar(4)"
-      },
-      "CollectionFee": {
-        "desc": "ค่า Collection Fee",
-        "type": "money"
-      },
       "Watchlist": {
-        "desc": "สถานะ Watch List",
+        "desc": "ติด Watch List หรือไม่",
+        "business_name": "Watch List",
         "type": "char(1)",
+        "keywords": [
+          "watchlist",
+          "watch list",
+          "เฝ้าระวัง"
+        ],
         "options": {
           "W": "ติด Watch List",
           "": "ปกติ"
         }
       },
-      "InterestO": {
-        "desc": "ดอกเบี้ยปรับลดลง (คงเหลือ)",
-        "type": "money"
-      },
-      "FeeO": {
-        "desc": "ค่าธรรมเนียมติดเลิกปรับลดหน้า (คงเหลือ)",
-        "type": "money"
-      },
-      "CollectionFeeO": {
-        "desc": "ค่าติดตามปรับลดหน้า (คงเหลือ)",
-        "type": "money"
-      },
-      "InterestC": {
-        "desc": "ดอกเบี้ยปรับ คำนวณใหม่ (คงเหลือ)",
-        "type": "money"
-      },
-      "FeeC": {
-        "desc": "ค่าธรรมเนียมเช็คผิด จำนวนใหม่ (คงเหลือ)",
-        "type": "money"
-      },
-      "AccNoB": {
-        "desc": "เลขที่สัญญา Phase 1 (Balloon)",
-        "is_pk": true,
-        "type": "nvarchar(15)"
-      },
-      "LLPrice": {
-        "desc": "ค่างวด งวดสุดท้าย สำหรับ Balloon (ไม่รวม VAT)",
-        "type": "money"
-      },
-      "DebtInt": {
-        "desc": "ดอกเบี้ยพักหนี้",
-        "type": "money"
-      },
-      "VerifyAmt": {
-        "desc": "ค่าตรวจสอบข้อมูล",
-        "type": "money"
-      },
-      "VerifyAmtO": {
-        "desc": "ค่าตรวจสอบที่ปรับลดลงมา (คงเหลือ)",
-        "type": "money"
-      },
-      "LawDate": {
-        "desc": "วันที่พิพากษา (คำค้น: ฟ้อง, คดี)",
-        "type": "varchar(8)",
-        "format": "YYYYMMDD",
-        "remark": "พ.ศ. (เช่น 25610101)"
+      "AccNo_alias": {
+        "desc": "ชื่อย่อสัญญา (Alias)",
+        "type": "nvarchar(20)"
       }
     }
   }

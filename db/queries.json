@@ -156,11 +156,13 @@
             ]
         },
         "NORMAL_STATUS": {
-            "sql": "SELECT LSM010.OLID, LSM010.AccNo, LSM010.CusId, LSM010.FolID, LSM007.FolName, LSM010.Bal, LSM010.Interest FROM LSM010 INNER JOIN LSM007 ON LSM007.FolID = LSM010.FolID WHERE LSM010.Stat2 = 'A' AND LSM010.FolID != '' ORDER BY LSM010.Bal DESC",
-            "description": "ลูกหนี้สูญปกติ (Stat2=A) — ไม่มี param",
+            "sql": "SELECT LSM010.OLID, LSM010.AccNo, LSM010.CusId, LSM010.FolID, LSM007.FolName, LSM010.Bal, LSM010.Interest FROM LSM010 INNER JOIN LSM007 ON LSM007.FolID = LSM010.FolID WHERE LSM010.Stat2 = 'A' AND LSM010.FolID != '' :branch_filter ORDER BY LSM010.Bal DESC",
+            "description": "ลูกหนี้สูญปกติ (Stat2=A) — รองรับ branch_code",
             "category": "delinquency",
             "subcategory": "aging",
-            "params": [],
+            "params": [
+                "branch_code"
+            ],
             "example_questions": [
                 "ลูกหนี้ปกติมีกี่ราย",
                 "สัญญาที่ยังปกติปัจจุบัน",
@@ -182,112 +184,139 @@
             ]
         },
         "VEHICLE_REPOSSESSED": {
-            "sql": "SELECT LSM010.OLID, LSM010.AccNo, LSM010.CusId, LSM010.FolID, LSM007.FolName, LSM010.Bal FROM LSM010 INNER JOIN LSM007 ON LSM007.FolID = LSM010.FolID WHERE LSM010.AccStat = '3' AND LSM010.FolID != '' ORDER BY LSM010.Bal DESC",
-            "description": "สัญญาที่รถถูกยืด (AccStat=3) — ไม่มี param",
+            "sql": "SELECT LSM010.OLID, LSM010.AccNo, LSM010.CusId, LSM010.FolID, LSM007.FolName, LSM010.Bal FROM LSM010 INNER JOIN LSM007 ON LSM007.FolID = LSM010.FolID WHERE LSM010.AccStat = '3' AND LSM010.FolID != '' :branch_filter ORDER BY LSM010.Bal DESC",
+            "description": "สัญญาที่รถถูกยืด (AccStat=3) — รองรับ branch_code",
             "category": "legal",
             "subcategory": "repossession",
-            "params": [],
+            "params": [
+                "branch_code"
+            ],
             "example_questions": [
                 "รถที่ถูกยืดมีกี่คัน",
                 "ยืดรถแล้วกี่ราย",
                 "พนักงานคนไหนดยืดรถเยอะที่สุด",
                 "ยืดไปกี่คัน",
-                "รถยืดของใคร"
+                "รถยืดของใคร",
+                "สาขา MN มีเลขที่สัญญาไหนบ้างที่ สถานะสัญญายึดรถ"
             ]
         },
-        "sql": "SELECT LSM010.FolID, LSM007.FolName, SUM(LSM010.Credit) AS TotalCredit, SUM(LSM010.Interest) AS TotalInterest, SUM(LSM010.Fee) AS TotalFee FROM LSM010 INNER JOIN LSM007 ON LSM010.FolID = LSM007.FolID WHERE LSM010.FolID != '' GROUP BY LSM010.FolID, LSM007.FolName ORDER BY TotalCredit DESC",
-        "description": "รวมค่างวดค้าง + ดอกเบี้ย + ค่าทวงถามแยกตามพนักงาน",
-        "category": "payment",
-        "subcategory": "collections",
-        "params": [],
-        "example_questions": [
-            "ค่าเช่าซื้อค้างทั้งหมดของแต่ละพนักงาน",
-            "ยอดค้างเน้นๆ ของเพื่อนเจอส",
-            "พนักงานคนไหนมีค้างเยอะที่สุด"
-        ]
-    },
-    "DELINQUENCY_SUMMARY": {
-        "sql": "SELECT LSM010.Stat2, COUNT(*) AS TotalContracts, SUM(LSM010.Bal + LSM010.BalTax) AS TotalBalance, SUM(LSM010.Interest) AS TotalInterest FROM LSM010 GROUP BY LSM010.Stat2 ORDER BY LSM010.Stat2",
-        "description": "สรุปจำนวนสัญญาและยอดหนี้แยกตามสถานะ (Aging)",
-        "category": "accounting",
-        "subcategory": "aging",
-        "params": [],
-        "example_questions": [
-            "ลูกหนี้แต่ละสถานะมีกี่ราย",
-            "สรุปสถานะลูกหนี้ทั้งหมด",
-            "ฟีตแมปสถานะ aging",
-            "สถานะ A B C D F กี่อัน",
-            "Aging summary"
-        ]
-    },
-    "WATCH_LIST_ACCOUNTS": {
-        "sql": "SELECT LSM010.OLID, LSM010.AccNo, LSM010.CusId, LSM010.Stat2, LSM010.FolID, LSM007.FolName, LSM010.Bal, LSM010.Interest FROM LSM010 INNER JOIN LSM007 ON LSM007.FolID = LSM010.FolID WHERE LSM010.Watchlist = 'W' AND LSM010.FolID != '' ORDER BY LSM010.Bal DESC",
-        "description": "สัญญาที่ติด Watch List — ไม่มี param",
-        "category": "risk",
-        "subcategory": "monitoring",
-        "params": [],
-        "example_questions": [
-            "สัญญาติด Watch List มีกี่ราย",
-            "ลูกค้าอันตรายที่เราเฝ้าดู",
-            "Watch List ของแต่ละพนักงาน",
-            "ติด Watch List กี่ราย",
-            "เฝ้าดู้อะไร"
-        ]
-    },
-    "RESTRUCTURED_CONTRACTS": {
-        "sql": "SELECT LSM010.OLID, LSM010.AccNo, LSM010.CusId, LSM010.AccDate, LSM010.EndAcc, LSM010.FolID, LSM007.FolName, LSM010.Bal FROM LSM010 INNER JOIN LSM007 ON LSM007.FolID = LSM010.FolID WHERE LSM010.AccStat = '7' AND LSM010.FolID != '' ORDER BY LSM010.Bal DESC",
-        "description": "สัญญาที่ปรับปรุงหนี้แล้ว (AccStat=7) — ไม่มี param",
-        "category": "risk",
-        "subcategory": "restructuring",
-        "params": [],
-        "example_questions": [
-            "ปรับปรุงหนี้มีกี่ราย",
-            "สัญญาที่ยืดอายุแล้ว",
-            "รีสทรัคเจอร์ของพนักงาน",
-            "ปรับปรุงเยอะสุดคืออะไร",
-            "ยืดอายุแล้วกี่เก"
-        ]
-    },
-    "EMPLOYEE_DELINQUENCY": {
-        "sql": "SELECT LSM010.FolID, LSM007.FolName, LSM010.Stat2, COUNT(*) AS TotalContracts, SUM(LSM010.Bal + LSM010.BalTax) AS TotalBalance FROM LSM010 INNER JOIN LSM007 ON LSM010.FolID = LSM007.FolID WHERE LSM010.FolID != '' GROUP BY LSM010.FolID, LSM007.FolName, LSM010.Stat2 ORDER BY LSM010.FolID, LSM010.Stat2",
-        "description": "สรุปลูกหนี้แยกตามพนักงาน + สถานะ (Aging)",
-        "category": "employee",
-        "subcategory": "delinquency",
-        "params": [],
-        "example_questions": [
-            "พนักงานแต่ละคนมีลูกหนี้เตือนกี่ราย",
-            "การกระจายสถานะตามคน",
-            "ใครจัดการลูกหนี้แย่ที่สุด",
-            "เตือน A B C D ของใคร",
-            "พนักงานไหนปัญหา"
-        ]
-    },
-    "PAYMENT_OVERDUE": {
-        "sql": "SELECT LSM010.OLID, LSM010.AccNo, LSM010.FPDate, LSM010.EndAcc, LSM010.LastPay, LSM010.Credit, LSM010.Interest, LSM010.Fee, LSM010.FolID, LSM007.FolName FROM LSM010 INNER JOIN LSM007 ON LSM007.FolID = LSM010.FolID WHERE (LSM010.Credit > 0 OR LSM010.Interest > 0 OR LSM010.Fee > 0) AND LSM010.FolID != '' ORDER BY LSM010.Bal DESC",
-        "description": "สัญญาที่มีค่าค้างชำระ (Credit/Interest/Fee) — ไม่มี param",
-        "category": "payment",
-        "subcategory": "overdue",
-        "params": [],
-        "example_questions": [
-            "สัญญาไหนมีค่าค้างจำหน่ายต่ำสุด",
-            "ค่าเช่าซื้อค้างมีกี่ราย",
-            "ดอกเบี้ยค้างต้องจัดการโดยพนักงานคนไหน",
-            "มีค้างชำระ",
-            "ค่าชำระสัญญา"
-        ]
-    },
-    "UPCOMING_MATURITY": {
-        "sql": "SELECT LSM010.OLID, LSM010.AccNo, LSM010.NLot, LSM010.NowLot, LSM010.EndAcc, LSM010.FolID, LSM007.FolName, LSM010.Bal FROM LSM010 INNER JOIN LSM007 ON LSM007.FolID = LSM010.FolID WHERE LSM010.AccStat = ' ' AND LSM010.Stat2 = 'A' AND LSM010.FolID != '' ORDER BY LSM010.EndAcc",
-        "description": "สัญญาที่ใกล้คืนสิ้นสุด (ปกติ Stat2=A) — ไม่มี param",
-        "category": "contract",
-        "subcategory": "maturity",
-        "params": [],
-        "example_questions": [
-            "สัญญาไหนจะครบกำหนดไร้เร็ว",
-            "ผิดนัดใกล้หมดอายุสัญญา",
-            "ตรวจสอบกำหนดครบสัญญาก่อนบอกเลิก",
-            "ใกล่หมดแลว",
-            "กำหนดหมดสัญญา"
-        ]
+        "EMPLOYEE_COLLECTIONS_SUMMARY": {
+            "sql": "SELECT LSM010.FolID, LSM007.FolName, SUM(LSM010.Credit) AS TotalCredit, SUM(LSM010.Interest) AS TotalInterest, SUM(LSM010.Fee) AS TotalFee FROM LSM010 INNER JOIN LSM007 ON LSM010.FolID = LSM007.FolID WHERE LSM010.FolID != '' GROUP BY LSM010.FolID, LSM007.FolName ORDER BY TotalCredit DESC",
+            "description": "รวมค่างวดค้าง + ดอกเบี้ย + ค่าทวงถามแยกตามพนักงาน",
+            "category": "payment",
+            "subcategory": "collections",
+            "params": [],
+            "example_questions": [
+                "ค่าเช่าซื้อค้างทั้งหมดของแต่ละพนักงาน",
+                "ยอดค้างเน้นๆ ของเพื่อนเจอส",
+                "พนักงานคนไหนมีค้างเยอะที่สุด"
+            ]
+        },
+        "DELINQUENCY_SUMMARY": {
+            "sql": "SELECT LSM010.Stat2, COUNT(*) AS TotalContracts, SUM(LSM010.Bal + LSM010.BalTax) AS TotalBalance, SUM(LSM010.Interest) AS TotalInterest FROM LSM010 GROUP BY LSM010.Stat2 ORDER BY LSM010.Stat2",
+            "description": "สรุปจำนวนสัญญาและยอดหนี้แยกตามสถานะ (Aging)",
+            "category": "accounting",
+            "subcategory": "aging",
+            "params": [],
+            "example_questions": [
+                "ลูกหนี้แต่ละสถานะมีกี่ราย",
+                "สรุปสถานะลูกหนี้ทั้งหมด",
+                "ฟีตแมปสถานะ aging",
+                "สถานะ A B C D F กี่อัน",
+                "Aging summary"
+            ]
+        },
+        "WATCH_LIST_ACCOUNTS": {
+            "sql": "SELECT LSM010.OLID, LSM010.AccNo, LSM010.CusId, LSM010.Stat2, LSM010.FolID, LSM007.FolName, LSM010.Bal, LSM010.Interest FROM LSM010 INNER JOIN LSM007 ON LSM007.FolID = LSM010.FolID WHERE LSM010.Watchlist = 'W' AND LSM010.FolID != '' ORDER BY LSM010.Bal DESC",
+            "description": "สัญญาที่ติด Watch List — ไม่มี param",
+            "category": "risk",
+            "subcategory": "monitoring",
+            "params": [],
+            "example_questions": [
+                "สัญญาติด Watch List มีกี่ราย",
+                "ลูกค้าอันตรายที่เราเฝ้าดู",
+                "Watch List ของแต่ละพนักงาน",
+                "ติด Watch List กี่ราย",
+                "เฝ้าดู้อะไร"
+            ]
+        },
+        "RESTRUCTURED_CONTRACTS": {
+            "sql": "SELECT LSM010.OLID, LSM010.AccNo, LSM010.CusId, LSM010.AccDate, LSM010.EndAcc, LSM010.FolID, LSM007.FolName, LSM010.Bal FROM LSM010 INNER JOIN LSM007 ON LSM007.FolID = LSM010.FolID WHERE LSM010.AccStat = '7' AND LSM010.FolID != '' ORDER BY LSM010.Bal DESC",
+            "description": "สัญญาที่ปรับปรุงหนี้แล้ว (AccStat=7) — ไม่มี param",
+            "category": "risk",
+            "subcategory": "restructuring",
+            "params": [],
+            "example_questions": [
+                "ปรับปรุงหนี้มีกี่ราย",
+                "สัญญาที่ยืดอายุแล้ว",
+                "รีสทรัคเจอร์ของพนักงาน",
+                "ปรับปรุงเยอะสุดคืออะไร",
+                "ยืดอายุแล้วกี่เก"
+            ]
+        },
+        "EMPLOYEE_DELINQUENCY": {
+            "sql": "SELECT LSM010.FolID, LSM007.FolName, LSM010.Stat2, COUNT(*) AS TotalContracts, SUM(LSM010.Bal + LSM010.BalTax) AS TotalBalance FROM LSM010 INNER JOIN LSM007 ON LSM010.FolID = LSM007.FolID WHERE LSM010.FolID != '' GROUP BY LSM010.FolID, LSM007.FolName, LSM010.Stat2 ORDER BY LSM010.FolID, LSM010.Stat2",
+            "description": "สรุปลูกหนี้แยกตามพนักงาน + สถานะ (Aging)",
+            "category": "employee",
+            "subcategory": "delinquency",
+            "params": [],
+            "example_questions": [
+                "พนักงานแต่ละคนมีลูกหนี้เตือนกี่ราย",
+                "การกระจายสถานะตามคน",
+                "ใครจัดการลูกหนี้แย่ที่สุด",
+                "เตือน A B C D ของใคร",
+                "พนักงานไหนปัญหา"
+            ]
+        },
+        "PAYMENT_OVERDUE": {
+            "sql": "SELECT LSM010.OLID, LSM010.AccNo, LSM010.FPDate, LSM010.EndAcc, LSM010.LastPay, LSM010.Credit, LSM010.Interest, LSM010.Fee, LSM010.FolID, LSM007.FolName FROM LSM010 INNER JOIN LSM007 ON LSM007.FolID = LSM010.FolID WHERE (LSM010.Credit > 0 OR LSM010.Interest > 0 OR LSM010.Fee > 0) AND LSM010.FolID != '' ORDER BY LSM010.Bal DESC",
+            "description": "สัญญาที่มีค่าค้างชำระ (Credit/Interest/Fee) — ไม่มี param",
+            "category": "payment",
+            "subcategory": "overdue",
+            "params": [],
+            "example_questions": [
+                "สัญญาไหนมีค่าค้างจำหน่ายต่ำสุด",
+                "ค่าเช่าซื้อค้างมีกี่ราย",
+                "ดอกเบี้ยค้างต้องจัดการโดยพนักงานคนไหน",
+                "มีค้างชำระ",
+                "ค่าชำระสัญญา"
+            ]
+        },
+        "TOP_5_INTEREST": {
+            "sql": "SELECT TOP 5 LSM010.OLID, LSM010.AccNo, LSM010.FolID, LSM007.FolName, LSM010.Interest FROM LSM010 INNER JOIN LSM007 ON LSM007.FolID = LSM010.FolID WHERE LSM010.FolID != '' ORDER BY LSM010.Interest DESC",
+            "description": "ดึงข้อมูล 5 อันดับแรกของสัญญาที่มีดอกเบี้ยค้างสูงสุด (Top 5 Highest Interest)",
+            "category": "payment",
+            "subcategory": "interest",
+            "params": [],
+            "example_questions": [
+                "5 อันดับสัญญาที่มีดอกเบี้ยค้างสูงสุด",
+                "ขอ 5 รายที่ดอกเบี้ยเยอะสุด",
+                "top 5 ดอกเบี้ยค้าง"
+            ]
+        },
+        "UPCOMING_MATURITY": {
+            "sql": "SELECT LSM010.OLID, LSM010.AccNo, LSM010.NLot, LSM010.NowLot, LSM010.EndAcc, LSM010.FolID, LSM007.FolName, LSM010.Bal FROM LSM010 INNER JOIN LSM007 ON LSM007.FolID = LSM010.FolID WHERE LSM010.AccStat = ' ' AND LSM010.Stat2 = 'A' AND LSM010.FolID != '' ORDER BY LSM010.EndAcc",
+            "description": "สัญญาที่ใกล้คืนสิ้นสุด (ปกติ Stat2=A) — ไม่มี param",
+            "category": "contract",
+            "subcategory": "maturity",
+            "params": [],
+            "example_questions": [
+                "สัญญาไหนจะครบกำหนดไร้เร็ว",
+                "ผิดนัดใกล้หมดอายุสัญญา",
+                "ตรวจสอบกำหนดครบสัญญาก่อนบอกเลิก",
+                "ใกล่หมดแลว",
+                "กำหนดหมดสัญญา"
+            ]
+        },
+        "INTEREST_OVER_25000_MN": {
+            "sql": "SELECT TOP 100 AccNo, OLID, Interest FROM LSM010 WHERE OLID = 'MN' AND CAST(Interest AS MONEY) > 25000",
+            "description": "รายชื่อสัญญาที่ยังค้างดอกเบี้ยเกิน 25000 บาท ของสาขา MN",
+            "category": "payment",
+            "subcategory": "interest",
+            "params": [],
+            "example_questions": [
+                "ขอรายชื่อสัญญาที่ยังค้างดอกเบี้ยเกิน 25000 บาท ของสาขา MN"
+            ]
+        }
     }
 }

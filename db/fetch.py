@@ -1,26 +1,33 @@
+"""
+Data Fetcher
+- ใช้ connection pool แทน get_connection() แบบเดิม
+- OOM Protection: fetchmany(1000) คงเดิม
+"""
+
 import logging
 from typing import List, Dict, Any
+
 from db.connector import get_connection
 from core.exceptions import DatabaseError
 
 logger = logging.getLogger(__name__)
 
+_FETCH_LIMIT = 1000
+
+
 def fetch_data(sql: str) -> List[Dict[str, Any]]:
-    """Executes SQL and returns a list of dictionaries."""
-    conn = get_connection()
+    """Executes SQL and returns a list of dicts (max 1,000 rows)."""
     try:
-        cursor = conn.cursor()
-        cursor.execute(sql)
-        # Check if query returned rows
-        if cursor.description:
-            columns = [column[0] for column in cursor.description]
-            # OOM Protection: จำกัดจำนวนแถวที่ดึงมาที่ 1,000 แถวแรกเด็ดขาด
-            rows = cursor.fetchmany(1000)
-            results = [dict(zip(columns, row)) for row in rows]
-            return results
-        return []
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(sql)
+            if not cursor.description:
+                return []
+            columns = [col[0] for col in cursor.description]
+            rows    = cursor.fetchmany(_FETCH_LIMIT)
+            return [dict(zip(columns, row)) for row in rows]
+    except DatabaseError:
+        raise
     except Exception as e:
-        logger.error("Fetch data error: %s | SQL: %s", e, sql)
-        raise DatabaseError(f"คิวรีฐานข้อมูลล้มเหลว: {str(e)}", details=sql)
-    finally:
-        conn.close()
+        logger.error("fetch_data error: %s | SQL: %.500s", e, sql)
+        raise DatabaseError(f"คิวรีฐานข้อมูลล้มเหลว: {e}", details=sql)

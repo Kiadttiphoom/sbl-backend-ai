@@ -8,10 +8,12 @@ logger = logging.getLogger(__name__)
 # Load queries from JSON file
 _QUERIES_PATH = os.path.join(os.path.dirname(__file__), "queries.json")
 
+
 def _load_queries():
     """Load templates from JSON file."""
     with open(_QUERIES_PATH, "r", encoding="utf-8") as f:
         return json.load(f)
+
 
 _QUERIES_DATA = _load_queries()
 
@@ -37,10 +39,11 @@ TEMPLATE_EXAMPLES: Dict[str, list] = {
 TEMPLATE_CATEGORIES: Dict[str, Dict[str, str]] = {
     name: {
         "category": template_info.get("category", "other"),
-        "subcategory": template_info.get("subcategory", "general")
+        "subcategory": template_info.get("subcategory", "general"),
     }
     for name, template_info in _QUERIES_DATA["templates"].items()
 }
+
 
 # Group templates by category
 def _group_by_category() -> Dict[str, list]:
@@ -53,7 +56,9 @@ def _group_by_category() -> Dict[str, list]:
         grouped[cat].append(name)
     return grouped
 
+
 TEMPLATES_BY_CATEGORY = _group_by_category()
+
 
 def get_category_list() -> str:
     """Return available categories for LLM."""
@@ -61,22 +66,19 @@ def get_category_list() -> str:
         "branch": "สาขา (Branch) — ข้อมูลสาขา, ปิดบัญชี",
         "delinquency": "ลูกหนี้ Aging — Stat2 (A/B/C/D/F/H), ปกติ, เตือน, ครบกำหนด",
         "contract": "สัญญา — รายละเอียด, ใกล้หมดอายุ",
-        "payment": "การจ่าย — ค่าค้าง, ดอกเบี้ย, ค่าทวงถาม",
+        "payment": "การจ่าย — ค่าค้าง, ดอกเบี้ย, ค่าทวงถาม, อันดับสูงสุด, ยอดจ่ายเยอะ",
         "employee": "พนักงาน — Portfolio, สัญญา, Delinquency",
         "accounting": "บัญชี — สรุป, ตัดหนี้, Aging",
         "legal": "คดีความ — ติดคดี, ยึดรถ",
-        "risk": "ความเสี่ยง — Watch List, Restructuring"
+        "risk": "ความเสี่ยง — Watch List, Restructuring",
     }
     return "\n".join([f"- {k}: {v}" for k, v in categories.items()])
+
 
 def get_templates_by_category(category: str) -> Dict[str, str]:
     """Get templates filtered by category."""
     templates = TEMPLATES_BY_CATEGORY.get(category, [])
-    return {
-        name: SQL_TEMPLATES[name]
-        for name in templates
-        if name in SQL_TEMPLATES
-    }
+    return {name: SQL_TEMPLATES[name] for name in templates if name in SQL_TEMPLATES}
 
 
 def reload_queries():
@@ -99,7 +101,7 @@ def reload_queries():
         TEMPLATE_CATEGORIES = {
             name: {
                 "category": template_info.get("category", "other"),
-                "subcategory": template_info.get("subcategory", "general")
+                "subcategory": template_info.get("subcategory", "general"),
             }
             for name, template_info in _QUERIES_DATA["templates"].items()
         }

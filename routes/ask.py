@@ -28,7 +28,12 @@ async def ask_post(body: AskRequest, request: Request) -> StreamingResponse:
         logger.info(f"   ประวัติการสนทนา: {len(body.history)} ข้อความ")
     return StreamingResponse(
         ai_controller.process_request(body.question, body.history),
-        media_type="application/x-ndjson"
+        media_type="application/x-ndjson",
+        headers={
+            "X-Accel-Buffering": "no",  # Disable buffering for Nginx
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        }
     )
 
 @router.get("/ask")
@@ -37,5 +42,10 @@ async def ask_get(q: str, request: Request) -> StreamingResponse:
     logger.info(f"📥 รับข้อความจากผู้ใช้ (GET): {q}")
     return StreamingResponse(
         ai_controller.process_request(q, []),
-        media_type="application/x-ndjson"
+        media_type="application/x-ndjson",
+        headers={
+            "X-Accel-Buffering": "no",
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        }
     )
