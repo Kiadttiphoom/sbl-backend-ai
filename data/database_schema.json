@@ -3,6 +3,17 @@
     "purpose": "SBL hire-purchase (เช่าซื้อ) financial system",
     "primary_table": "LSM010",
     "join_rule": "ต้องการชื่อพนักงาน/ผู้ยึด → JOIN LSM007 ON LSM010.FolID = LSM007.FolID",
+    "database_routing": {
+      "lspdata": [
+        "LSM010",
+        "LSM007"
+      ],
+      "crms": [
+        "CRMDetail",
+        "CRMFol1",
+        "CRMFol2"
+      ]
+    },
     "sql_dialect": "SQL Server 2008 — ใช้ TOP N ไม่ใช่ LIMIT, ใช้ CAST(col AS MONEY) สำหรับ numeric compare",
     "common_intents": {
       "ยอดหนี้รวม / สรุป": "SUM(Bal), COUNT(*) GROUP BY OLID หรือ FolID",
@@ -14,7 +25,8 @@
       "Watch List": "WHERE Watchlist = 'W'",
       "ปรับปรุงหนี้": "WHERE AccStat = '7'",
       "ลูกหนี้รายพนักงาน": "JOIN LSM007, GROUP BY LSM007.FolID, LSM007.FolName",
-      "กรองสาขา": "WHERE OLID = '<branch_code>'"
+      "กรองสาขา": "WHERE OLID = '<branch_code>'",
+      "ประวัติการติดตาม (CRM)": "JOIN CRMDetail ON LSM010.AccNo = CRMDetail.AccNo (ใช้ db='crms')"
     },
     "stat2_groups": {
       "กลุ่มเตือน (1-3)": [
@@ -538,6 +550,140 @@
       "AccNo_alias": {
         "desc": "ชื่อย่อสัญญา (Alias)",
         "type": "nvarchar(20)"
+      }
+    }
+  },
+  "CRMDetail": {
+    "description": "ข้อมูลรายละเอียดผลการติดตาม (CRM Tracking Details)",
+    "business_role": "ใช้สำหรับเก็บประวัติการติดตามหนี้และการเจรจากับลูกค้า",
+    "database": "crms",
+    "columns": {
+      "Mth": {
+        "desc": "เดือนที่ติดตาม",
+        "type": "nvarchar"
+      },
+      "Yrs": {
+        "desc": "ปีที่ติดตาม",
+        "type": "nvarchar"
+      },
+      "Num": {
+        "desc": "ลำดับครั้งที่ติดตาม",
+        "type": "varchar",
+        "is_pk": true
+      },
+      "AccNo": {
+        "desc": "เลขที่สัญญา — JOIN LSM010.AccNo",
+        "type": "varchar",
+        "is_pk": true,
+        "join_to": "LSM010.AccNo"
+      },
+      "FDate": {
+        "desc": "วันที่ติดตาม (YYYYMMDD)",
+        "type": "varchar",
+        "is_pk": true
+      },
+      "FDetail": {
+        "desc": "ผลการเจรจา / รายละเอียดการติดตาม",
+        "type": "text",
+        "keywords": [
+          "ผลการติดตาม",
+          "คุยว่าอะไร",
+          "เจรจา"
+        ]
+      },
+      "Due_Date": {
+        "desc": "วันที่พนักงานนัดชำระ",
+        "type": "varchar"
+      },
+      "AccStatus": {
+        "desc": "ความเห็นผู้ติดตาม (1=ควรยึดรถ, 2=ควรปรับปรุงหนี้)",
+        "type": "char"
+      },
+      "EmpID": {
+        "desc": "รหัสพนักงานผู้บันทึกข้อมูล",
+        "type": "nvarchar"
+      },
+      "Fol1": {
+        "desc": "รหัสติดตาม 1 — JOIN CRMFol1.CodeFol",
+        "type": "nvarchar"
+      },
+      "Fol2": {
+        "desc": "รหัสติดตาม 2 — JOIN CRMFol2.CodeFol",
+        "type": "nvarchar"
+      },
+      "Sec": {
+        "desc": "Section",
+        "type": "nvarchar"
+      },
+      "UOutlet": {
+        "desc": "Outlet",
+        "type": "nvarchar"
+      },
+      "FolSys": {
+        "desc": "ระบบที่ติดตาม",
+        "type": "varchar"
+      },
+      "FTime": {
+        "desc": "เวลาที่ติดตาม",
+        "type": "varchar"
+      }
+    }
+  },
+  "CRMFol1": {
+    "description": "ตารางรหัสการติดตาม 1 (Follow-up Master 1)",
+    "database": "crms",
+    "columns": {
+      "CodeFol": {
+        "desc": "รหัสติดตาม",
+        "type": "nvarchar",
+        "is_pk": true
+      },
+      "DesFol": {
+        "desc": "ชื่อรายการติดตาม",
+        "type": "nvarchar"
+      },
+      "StatusFol": {
+        "desc": "สถานะการติดตาม",
+        "type": "char"
+      },
+      "StatusS": {
+        "desc": "สถานะ S",
+        "type": "char"
+      },
+      "StatusAuto": {
+        "desc": "สถานะ Auto",
+        "type": "char"
+      }
+    }
+  },
+  "CRMFol2": {
+    "description": "ตารางรหัสการติดตาม 2 (Follow-up Master 2)",
+    "database": "crms",
+    "columns": {
+      "CodeFol": {
+        "desc": "รหัสติดตาม",
+        "type": "nvarchar",
+        "is_pk": true
+      },
+      "DesFol": {
+        "desc": "ชื่อรายการติดตาม",
+        "type": "nvarchar"
+      },
+      "StatusFol": {
+        "desc": "สถานะการติดตาม",
+        "type": "char"
+      },
+      "StatusS": {
+        "desc": "สถานะ S",
+        "type": "char"
+      },
+      "StatusAuto": {
+        "desc": "สถานะ Auto",
+        "type": "char"
+      },
+      "StatusC": {
+        "desc": "สถานะ C",
+        "type": "char"
       }
     }
   }

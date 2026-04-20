@@ -30,6 +30,19 @@ _COLUMN_LABEL_MAP: Dict[str, str] = {
     "BALTAX": "ภาษีคงเหลือ",
     "CREDIT": "ยอดค้างชำระ",
     "INTEREST": "ดอกเบี้ยค้าง",
+    "FDATE": "วันที่ติดตาม",
+    "FDETAIL": "รายละเอียดการติดตาม",
+    "FTime": "เวลา",
+    "DUE_DATE": "วันนัดชำระ",
+    "STATUS1": "สถานะ 1",
+    "STATUS2": "สถานะ 2",
+    "EMPID": "รหัสพนักงาน",
+    "MTH": "เดือน",
+    "YRS": "ปี",
+    "SECTION": "หมวดหมู่",
+    "SUCCESSCOUNT": "ติดต่อได้ (สำเร็จ)",
+    "FAILCOUNT": "ติดต่อไม่ได้",
+    "TOTALCOUNT": "รวมติดตามทั้งหมด",
 }
 
 _AGG_KEYS = frozenset(
@@ -105,34 +118,76 @@ class AnalysisEngine:
 
         results = pipeline.run(results)
 
-        sample = results[:100]
+        # ── Data Sampling Logic ────────────────────────────────────────────────
+        # ถ้าเป็นข้อมูลประวัติ (History) หรือจำนวนเยอะมาก ให้ลดจำนวนที่ส่งไป AI
+        # เพื่อป้องกัน LLM Timeout หรือ Context Overflow
+        limit = 100
+        is_crm_log = any(k.upper() in ("FDATE", "FDETAIL", "STATUS1") for k in results[0].keys())
+        
+        if is_crm_log:
+            # CRM Log → เอาแค่ 15 รายการล่าสุด เพื่อป้องกัน LLM timeout
+            limit = 15
+            logger.info("Formatter: CRM Log detected, sampling top %d rows", limit)
+            # ตัด column ที่ไม่จำเป็นออกเพื่อลด context size
+            _CRM_DROP_COLS = {"MTH", "YRS", "NUM", "EMPID", "FTIME"}
+            results = [
+                {k: v for k, v in row.items() if k.upper() not in _CRM_DROP_COLS}
+                for row in results
+            ]
+
+        sample = results[:limit]
         keys = list(sample[0].keys())
         headers = [self._get_label(k, schema) for k in keys]
 
-        lines = [
-            "| " + " | ".join(headers) + " |",
-            "|" + "|".join(["---"] * len(headers)) + "|",
-        ]
-        for row in sample:
-            cells = []
-            for k in keys:
-                v = self._translate_value(k, row[k], schema)
-                # Format numeric money columns with Thai format (no raw commas that break tables)
-                raw = row[k]
-                if k.upper() in _NUMERIC_KEYS and isinstance(raw, (int, float)):
-                    v = f"{raw:,.2f} บาท"
-                cells.append(
-                    str(v)
-                    .replace("\n", " ")
-                    .replace("\r", "")
-                    .replace("|", "\\|")
-                    .strip()
-                )
-            lines.append("| " + " | ".join(cells) + " |")
+        # ── Advanced Sectional Formatting ───────────────────────────────
+        # ถ้ามีคอลัมน์ Section/หมวดหมู่ ให้ใช้ format ที่ AI อ่านแล้วไม่หลงคอลัมน์
+        has_section = any(k.upper() in ("SECTION", "หมวดหมู่") for k in keys)
+        
+        if has_section:
+            sections = []
+            for row in sample:
+                section_name = str(row.get("Section") or row.get("หมวดหมู่") or "ข้อมูล")
+                details = []
+                for k in keys:
+                    if k.upper() in ("SECTION", "หมวดหมู่"): continue
+                    val = self._translate_value(k, row[k], schema)
+                    if val is None or str(val).upper() == "NULL": continue
+                    
+                    label = self._get_label(k, schema)
+                    # Format money
+                    if k.upper() in _NUMERIC_KEYS and isinstance(row[k], (int, float)):
+                        val = f"{row[k]:,.2f} บาท"
+                    
+                    v_str = str(val).replace("\n", " ").strip()
+                    if len(v_str) > 200: v_str = v_str[:197] + "..."
+                    details.append(f"- {label}: {v_str}")
+                
+                sections.append(f"### {section_name}\n" + "\n".join(details))
+            
+            ctx = "\n\n".join(sections)
+        else:
+            # ── Standard Table Formatting ───────────────────────────────
+            lines = [
+                "| " + " | ".join(headers) + " |",
+                "|" + "|".join(["---"] * len(headers)) + "|",
+            ]
+            for row in sample:
+                cells = []
+                for k in keys:
+                    v = self._translate_value(k, row[k], schema)
+                    raw = row[k]
+                    if k.upper() in _NUMERIC_KEYS and isinstance(raw, (int, float)):
+                        v = f"{raw:,.2f} บาท"
+                    
+                    v_str = str(v).replace("\n", " ").replace("\r", " ").replace("|", "\\|").strip()
+                    if len(v_str) > 200: v_str = v_str[:197] + "..."
+                    cells.append(v_str)
+                lines.append("| " + " | ".join(cells) + " |")
+            ctx = "\n".join(lines)
 
-        ctx = "\n".join(lines)
-        if len(results) > 100:
-            ctx += f"\n\n*... (และข้อมูลส่วนที่เหลืออีก {len(results) - 100} รายการ)*"
+        if len(results) > limit:
+            ctx += f"\n\n*... (และข้อมูลส่วนที่เหลืออีก {len(results) - limit} รายการ ถูกตัดออกเพื่อความเร็ว)*"
+        
         return ctx
 
     def get_summary_stats(self, results: List[Dict[str, Any]]) -> str:

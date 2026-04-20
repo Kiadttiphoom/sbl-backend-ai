@@ -33,25 +33,54 @@ OLLAMA_BASE_URL: Optional[str]   = _get_env("OLLAMA_BASE_URL")
 MODEL_NAME: str  = _get_env("MODEL_NAME")
 SQL_MODEL: str   = _get_env("SQL_MODEL")
 
-LLM_TIMEOUT: int = int(_get_env("LLM_TIMEOUT", "120"))
+LLM_TIMEOUT: int = int(_get_env("LLM_TIMEOUT", "180"))
 
 # ── Database ──────────────────────────────────────────────────────────────────
 
-# Database Configuration (pyodbc)
-SQL_SERVER: str = _get_env("DB_SERVER")
-DATABASE: str   = _get_env("DB_NAME")
-DB_USER: str    = _get_env("DB_USER")
-DB_PASSWORD: str = _get_env("DB_PASS")
+from typing import List, Optional, Dict
 
-# Connection String for SQL Server
-DB_DRIVER: str = _get_env("DB_DRIVER", "SQL Server")
-DB_CONFIG: str = (
-    f"DRIVER={{{DB_DRIVER}}};"
-    f"SERVER={SQL_SERVER};"
-    f"DATABASE={DATABASE};"
-    f"UID={DB_USER};"
-    f"PWD={DB_PASSWORD};"
-)
+def _build_dsn_from_env(prefix: str) -> str:
+    """
+    สร้าง ODBC DSN โดยอ่านค่าจาก .env ตาม prefix (เช่น LSPDATA, CRMS)
+    เช่น DB_SERVER_{PREFIX}, DB_USER_{PREFIX}, ...
+    """
+    server   = _get_env(f"DB_SERVER_{prefix}")
+    database = _get_env(f"DB_NAME_{prefix}")
+    user     = _get_env(f"DB_USER_{prefix}")
+    password = _get_env(f"DB_PASS_{prefix}")
+    driver   = _get_env(f"DB_DRIVER_{prefix}", "SQL Server")
+    
+    if not all([server, database, user, password]):
+        # Fallback เพื่อให้พังเร็วขึ้นถ้า config ไม่ครบ
+        return f"INVALID_CONFIG_FOR_{prefix}"
+
+    return (
+        f"DRIVER={{{driver}}};"
+        f"SERVER={server};"
+        f"DATABASE={database};"
+        f"UID={user};"
+        f"PWD={password};"
+    )
+
+
+# ┌────────────────────────────────────────────────────────────────────────┐
+# │ ⚡ REGISTRY: รวมท่อเชื่อมต่อ Database ทั้งหมดในระบบ                        │
+# │ วิธีเพิ่ม: 1. เพิ่ม alias ในนี้  2. เพิ่มประกาศตัวแปรใน .env ให้ครบตามชุด         │
+# └────────────────────────────────────────────────────────────────────────┘
+DATABASES: Dict[str, str] = {
+    # [ชุดที่ 1] ระบบเช่าซื้อหลัก (Lspdata) -> ใช้ตาราง LSM010, LSM007
+    "lspdata":  _build_dsn_from_env("LSPDATA"),
+
+    # [ชุดที่ 2] ระบบ CRM (crms) -> ใช้ตาราง CRMDetail, CRMFol1, CRMFol2
+    "crms":     _build_dsn_from_env("CRMS"),
+
+    # [ชุดที่ 3] สำหรับเพิ่มเองในอนาคต (แค่เอา # ออก และตั้งชื่อ Prefix ใน .env เป็น DB3)
+    # "db3":    _build_dsn_from_env("DB3"),
+
+    # [ชุดที่ 4] สำหรับเพิ่มเองในอนาคต (แค่เอา # ออก และตั้งชื่อ Prefix ใน .env เป็น DB4)
+    # "db4":    _build_dsn_from_env("DB4"),
+}
+
 
 # Paths
 BASE_DIR: str = os.path.dirname(os.path.abspath(__file__))

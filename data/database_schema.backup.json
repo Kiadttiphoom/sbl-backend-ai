@@ -368,5 +368,129 @@
         "remark": "พ.ศ. (เช่น 25610101)"
       }
     }
+  },
+  "CRMDetail": {
+    "description": "ตาราง รายละเอียดผลการติดตามลูกค้า (CRM)",
+    "columns": {
+      "Mth": {
+        "desc": "เดือนที่ติดตาม",
+        "type": "nvarchar"
+      },
+      "Yrs": {
+        "desc": "ปีที่ติดตาม",
+        "type": "nvarchar"
+      },
+      "Num": {
+        "desc": "ลำดับครั้งที่ติดตาม",
+        "type": "varchar",
+        "is_pk": true
+      },
+      "AccNo": {
+        "desc": "เลขที่สัญญา",
+        "type": "varchar",
+        "is_pk": true
+      },
+      "FDate": {
+        "desc": "วันที่ติดตาม (YYYYMMDD)",
+        "type": "varchar",
+        "is_pk": true
+      },
+      "FDetail": {
+        "desc": "ผลการติดตาม / รายละเอียด",
+        "type": "text"
+      },
+      "Due_Date": {
+        "desc": "วันที่นัดชำระ",
+        "type": "varchar"
+      },
+      "AccStatus": {
+        "desc": "ความเห็นผู้ติดตาม (1=ยึดรถ, 2=ปรับหนี้)",
+        "type": "char"
+      },
+      "EmpID": {
+        "desc": "ผู้บันทึกข้อมูล",
+        "type": "nvarchar"
+      },
+      "Fol1": {
+        "desc": "รหัสติดตาม 1",
+        "type": "nvarchar"
+      },
+      "Fol2": {
+        "desc": "รหัสติดตาม 2",
+        "type": "nvarchar"
+      },
+      "Sec": {
+        "desc": "Section",
+        "type": "nvarchar"
+      },
+      "UOutlet": {
+        "desc": "Outlet",
+        "type": "nvarchar"
+      },
+      "FolSys": {
+        "desc": "ระบบที่ติดตาม",
+        "type": "varchar"
+      },
+      "FTime": {
+        "desc": "เวลาที่ติดตาม",
+        "type": "varchar"
+      }
+    }
+  },
+  "CRMFol1": {
+    "description": "ตาราง มาสเตอร์รหัสการติดตาม 1",
+    "columns": {
+      "CodeFol": {
+        "desc": "รหัสติดตาม",
+        "type": "nvarchar",
+        "is_pk": true
+      },
+      "DesFol": {
+        "desc": "ชื่อรายการติดตาม",
+        "type": "nvarchar"
+      },
+      "StatusFol": {
+        "desc": "สถานะการติดตาม",
+        "type": "char"
+      },
+      "StatusS": {
+        "desc": "สถานะ S",
+        "type": "char"
+      },
+      "StatusAuto": {
+        "desc": "สถานะ Auto",
+        "type": "char"
+      }
+    }
+  },
+  "CRMFol2": {
+    "description": "ตาราง มาสเตอร์รหัสการติดตาม 2",
+    "columns": {
+      "CodeFol": {
+        "desc": "รหัสติดตาม",
+        "type": "nvarchar",
+        "is_pk": true
+      },
+      "DesFol": {
+        "desc": "ชื่อรายการติดตาม",
+        "type": "nvarchar"
+      },
+      "StatusFol": {
+        "desc": "สถานะการติดตาม",
+        "type": "char"
+      },
+      "StatusS": {
+        "desc": "สถานะ S",
+        "type": "char"
+      },
+      "StatusAuto": {
+        "desc": "สถานะ Auto",
+        "type": "char"
+      },
+      "StatusC": {
+        "desc": "สถานะ C",
+        "type": "char"
+      }
+    }
   }
 }

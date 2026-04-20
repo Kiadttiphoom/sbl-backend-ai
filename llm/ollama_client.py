@@ -149,6 +149,7 @@ class OllamaClient:
 
         for attempt in range(_RETRY_ATTEMPTS):
             url = endpoints[attempt % len(endpoints)]
+            tokens_received = 0
             try:
                 async with self.client.stream("POST", url, json=payload, timeout=LLM_TIMEOUT) as r:
                     r.raise_for_status()
@@ -157,11 +158,18 @@ class OllamaClient:
                             continue
                         data = json.loads(line)
                         if "message" in data:
-                            yield data["message"].get("content", "")
+                            content = data["message"].get("content", "")
+                            if content:
+                                tokens_received += 1
+                                yield content
                         if data.get("done"):
                             return
+
+                # ถ้าวนลูปจบแล้วแต่ไม่ได้ token เลย (เช่น Server ตัดการเชื่อมต่อทันทีหรือ Error เงียบ)
+                if tokens_received == 0:
+                    raise LLMError("Stream สิ้นสุดโดยไม่ได้รับข้อมูลตอบกลับ")
                 return
-            except (httpx.ConnectError, httpx.TimeoutException) as e:
+            except (httpx.ConnectError, httpx.TimeoutException, LLMError) as e:
                 logger.warning("chat_stream error on %s: %s (attempt %d)", url, e, attempt + 1)
                 last_error = e
                 if attempt < _RETRY_ATTEMPTS - 1:

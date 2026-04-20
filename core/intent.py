@@ -32,8 +32,12 @@ _FOLLOWUP_PATTERNS: List[str] = [
     r"^(คนนี้|คนนั้น|เขา|เธอ|มัน|ตัวนี้|รายนี้)",
     r"^(แล้ว.{0,10}ล่ะ|.{0,15}ล่ะ$)",        # "แล้วยอดรวมล่ะ"
     r"^(กี่|เท่าไหร่|เท่าใด|มีกี่|รวม|ทั้งหมด).{0,20}$",  # คำถามสั้น เชิงตัวเลข
-    r"(เพิ่มเติม|อีกคน|คนอื่น|รายอื่น)",
+    r"^(เพิ่มเติม|อีกคน|คนอื่น|รายอื่น)",
     r"^(ดู|แสดง|หา|เช็ค|ตรวจ).{0,15}(ด้วย|อีก|เพิ่ม)$",
+]
+
+_ADVISORY_PATTERNS: List[str] = [
+    r"(ทำยังไง|ทํายังไง|ทำไม|ทําไม|อย่างไร|แนะนำ|ควรจะ|แนวทาง|วิธี|แก้ปัญหา|ตามได้ไง|วิเคราะห์|ยังไงดี)",
 ]
 
 def _is_followup(q: str, history: List[Dict[str, str]]) -> bool:
@@ -78,21 +82,29 @@ def _is_followup(q: str, history: List[Dict[str, str]]) -> bool:
 def detect_intent(q: str, history: Optional[List[Dict[str, str]]] = None) -> Dict[str, Any]:
     """
     คืน dict:
-        intent     : "DATA_QUERY" | "GENERAL"
+        intent     : "DATA_QUERY" | "ADVISORY" | "GENERAL"
         confidence : "high" | "medium" | "low"
         matched    : list of matched keywords (สำหรับ debug)
 
     Pipeline (เรียงตามลำดับ priority):
-        1. Strong keywords  → DATA_QUERY high
-        2. Followup context → DATA_QUERY medium  (NEW)
-        3. Semantic vector  → DATA_QUERY medium
-        4. Weak keywords    → DATA_QUERY low → ลอง SQL เลย ไม่ถามกลับ (CHANGED)
-        5. ไม่ match เลย    → GENERAL high
+        1. Advisory patterns (if followup) → ADVISORY high
+        2. Strong keywords  → DATA_QUERY high
+        3. Followup context → DATA_QUERY medium
+        4. Semantic vector  → DATA_QUERY medium
+        5. Weak keywords    → DATA_QUERY low
+        6. ไม่ match เลย    → GENERAL high
     """
     ql      = q.lower()
     matched: List[str] = []
 
-    # 1. Strong keywords → confidence high
+    # 1. Advisory Detection (Only if there is history context)
+    is_fup = _is_followup(q, history or [])
+    if is_fup:
+        for pattern in _ADVISORY_PATTERNS:
+            if re.search(pattern, ql):
+                return {"intent": "ADVISORY", "confidence": "high", "matched": ["advisory_pattern"]}
+
+    # 2. Strong keywords → confidence high
     for k in STRONG_DATA_KEYWORDS:
         if k.lower() in ql:
             matched.append(k)

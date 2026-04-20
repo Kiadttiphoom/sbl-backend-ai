@@ -1,7 +1,8 @@
 """
-Database Connection Pool
-- ใช้ connection pooling แทนการเปิด/ปิด connection ทุกครั้ง
-- Thread-safe pool ด้วย threading.Lock
+Database Connection Pool — Config-Driven Multi-Database
+─────────────────────────────────────────────────────────
+เพิ่ม Database ใหม่: แค่เพิ่ม 1 บรรทัดใน config.py > DATABASES
+  ไม่ต้องแก้ไฟล์นี้เลย!
 """
 
 import pyodbc
@@ -10,14 +11,17 @@ import threading
 from contextlib import contextmanager
 from typing import Generator
 
-from config import DB_CONFIG
+from config import DATABASES
 from core.exceptions import DatabaseError
 
 logger = logging.getLogger(__name__)
 
 _POOL_SIZE = 5
 
+
 class _ConnectionPool:
+    """Thread-safe connection pool สำหรับ 1 database."""
+
     def __init__(self, dsn: str, size: int = _POOL_SIZE):
         self._dsn   = dsn
         self._lock  = threading.Lock()
@@ -27,7 +31,6 @@ class _ConnectionPool:
     def _new_conn(self) -> pyodbc.Connection:
         try:
             conn = pyodbc.connect(self._dsn, autocommit=True)
-            # Keep connection alive on SQL Server
             conn.timeout = 30
             return conn
         except Exception as e:
@@ -44,17 +47,18 @@ class _ConnectionPool:
         if conn is None:
             conn = self._new_conn()
 
+        # liveness check ก่อน yield — เพื่อหลีกเลี่ยง double-yield ใน contextmanager
+        # (yield สองครั้งใน @contextmanager ทำให้เกิด "generator didn't stop after throw()")
         try:
-            # Quick liveness check
             conn.execute("SELECT 1")
-            yield conn
         except Exception:
-            # Connection dead — close and give a fresh one
             try:
                 conn.close()
             except Exception:
                 pass
             conn = self._new_conn()
+
+        try:
             yield conn
         finally:
             with self._lock:
@@ -67,11 +71,38 @@ class _ConnectionPool:
                         pass
 
 
-_pool = _ConnectionPool(DB_CONFIG, size=_POOL_SIZE)
+# ── Auto-create pools จาก DATABASES config ───────────────────────────────────
+# เมื่อ dev เพิ่ม entry ใน DATABASES → pool ถูกสร้างอัตโนมัติ
+_pools: dict[str, _ConnectionPool] = {
+    name: _ConnectionPool(dsn) for name, dsn in DATABASES.items()
+}
+logger.info("DB pools initialized: %s", list(_pools.keys()))
 
 
 @contextmanager
-def get_connection() -> Generator[pyodbc.Connection, None, None]:
-    """Context manager: ดึง connection จาก pool และคืนกลับอัตโนมัติ"""
-    with _pool.acquire() as conn:
+def get_connection(db: str = "lspdata") -> Generator[pyodbc.Connection, None, None]:
+    """
+    ดึง connection จาก pool ตาม alias ที่ลงทะเบียนใน config.py > DATABASES
+
+    Args:
+        db: alias ของ database เช่น "lspdata", "crms"
+            (ดู list ทั้งหมดได้ใน config.py > DATABASES)
+
+    Raises:
+        DatabaseError: ถ้า alias ไม่ได้ register ไว้ใน DATABASES
+    """
+    pool = _pools.get(db)
+    if pool is None:
+        available = list(_pools.keys())
+        raise DatabaseError(
+            f"ไม่รู้จัก database alias '{db}' — "
+            f"มีแค่: {available} "
+            f"(เพิ่มใน config.py > DATABASES)"
+        )
+    with pool.acquire() as conn:
         yield conn
+
+
+def available_databases() -> list[str]:
+    """คืน list ของ database aliases ที่ register ไว้ทั้งหมด"""
+    return list(_pools.keys())

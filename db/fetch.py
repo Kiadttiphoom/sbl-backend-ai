@@ -1,11 +1,11 @@
 """
-Data Fetcher
-- ใช้ connection pool แทน get_connection() แบบเดิม
-- OOM Protection: fetchmany(1000) คงเดิม
+Data Fetcher — Multi-Database
+- ระบุ db="lspdata" หรือ db="crms" เพื่อเลือก connection pool
+- OOM Protection: fetchmany(1000)
 """
 
 import logging
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Literal
 
 from db.connector import get_connection
 from core.exceptions import DatabaseError
@@ -13,12 +13,20 @@ from core.exceptions import DatabaseError
 logger = logging.getLogger(__name__)
 
 _FETCH_LIMIT = 1000
+# Type hint สำหรับช่วยบอกว่าใช้ alias อะไรได้บ้าง (str ธรรมดาเพื่อให้ dynamic)
+DBName = str
 
 
-def fetch_data(sql: str) -> List[Dict[str, Any]]:
-    """Executes SQL and returns a list of dicts (max 1,000 rows)."""
+def fetch_data(sql: str, db: DBName = "lspdata") -> List[Dict[str, Any]]:
+    """
+    Executes SQL and returns a list of dicts (max 1,000 rows).
+
+    Args:
+        sql: SQL query string
+        db:  "lspdata" (LSM010, LSM007) | "crms" (CRMDetail, CRMFol1, CRMFol2)
+    """
     try:
-        with get_connection() as conn:
+        with get_connection(db) as conn:
             cursor = conn.cursor()
             cursor.execute(sql)
             if not cursor.description:
@@ -29,5 +37,5 @@ def fetch_data(sql: str) -> List[Dict[str, Any]]:
     except DatabaseError:
         raise
     except Exception as e:
-        logger.error("fetch_data error: %s | SQL: %.500s", e, sql)
+        logger.error("fetch_data error [%s]: %s | SQL: %.500s", db, e, sql)
         raise DatabaseError(f"คิวรีฐานข้อมูลล้มเหลว: {e}", details=sql)

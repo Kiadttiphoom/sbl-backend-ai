@@ -9,11 +9,14 @@
                 "branch_code"
             ],
             "example_questions": [
-                "สาขา 0S มีสัญญาอะไรบ้าง",
-                "ข้อมูลสาขา AA",
-                "สาขา MF มีกี่ราย",
-                "สาขาไหนขาดเยอะสุด",
-                "เปรียบเทียบยอดหนี้แต่ละสาขา"
+                "สาขา MN มีสัญญาทั้งหมดกี่ราย",
+                "ขอดูข้อมูลสัญญาทั้งหมดในสาขา 0S",
+                "สาขา AA มีสัญญาอะไรบ้าง",
+                "รายการสัญญาสาขา MF ทั้งหมด",
+                "ยอดหนี้ในสาขา GG มีอะไรบ้าง",
+                "ดึงข้อมูลสัญญาของสาขา 6B",
+                "สาขา TK มีสัญญาค้างเยอะไหม",
+                "ข้อมูลสัญญาทั้งหมดในสาขา BA"
             ]
         },
         "PAID_UP_LIST": {
@@ -26,9 +29,12 @@
             ],
             "example_questions": [
                 "สัญญาที่จ่ายจบแล้วมีกี่ราย",
-                "ปิดบัญชีแล้วสาขา 0S",
-                "อะไรครบแล้ว",
-                "งานเสร็จกี่ราย",
+                "รายชื่อสัญญาที่ปิดบัญชีจ่ายจบแล้ว",
+                "ปิดบัญชีแล้วสาขา 0S มีกี่ราย",
+                "สัญญาที่ลูกค้าชำระครบหมดแล้ว",
+                "ดูสัญญาที่จ่ายจบ AccStat 1",
+                "ลูกค้าที่ผ่อนจนครบสัญญาแล้ว",
+                "สรุปสัญญาปิดบัญชีทั้งหมด",
                 "ปิดบัญชีแยกตามสาขา"
             ]
         },
@@ -41,12 +47,15 @@
                 "stat2_code"
             ],
             "example_questions": [
-                "ลูกหนี้เตือนครั้งที่ 2 มีใครบ้าง",
-                "กลุ่มบอกเลิกสัญญา",
-                "เตือนกี่ครั้ง",
-                "เตือน 2 ครั้ง มีเยอะไหม",
-                "เตือนครั้งที่ 3 ขึ้นไป",
-                "เก็บค่างวดจากเตือน"
+                "ลูกหนี้ที่ค้างชำระ 1-90 วันมีกี่ราย",
+                "ดูลูกหนี้กลุ่มเตือนทั้งหมด (Stat2 B C D)",
+                "ลูกหนี้เตือนครั้งที่ 1 ค้างไม่เกิน 30 วันมีใครบ้าง",
+                "ลูกหนี้เตือนครั้งที่ 2 ค้าง 31-60 วัน",
+                "ลูกหนี้เตือนครั้งที่ 3 ค้าง 61-90 วัน",
+                "สัญญาที่อยู่ในกลุ่มเตือน B หรือ C",
+                "รายชื่อลูกหนี้ที่โดนเตือนแต่ยังไม่ถึง 90 วัน",
+                "พนักงานคนไหนดูแลลูกหนี้กลุ่มเตือน D บ้าง",
+                "เตือนกี่ครั้งแล้วมีรายชื่ออะไรบ้าง"
             ]
         },
         "OVERDUE_35_DAYS": {
@@ -56,12 +65,14 @@
             "subcategory": "aging",
             "params": [],
             "example_questions": [
-                "ครบกำหนด 35 วัน มีกี่ราย",
-                "สัญญาที่ถึงกำหนดบอกเลิก",
-                "พนักงานคนไหนดูแลลูกหนี้สูญ 35 วัน",
-                "บอกเลิกสัญญาแล้วมีเท่าไหร่",
-                "พนักงานไหนดูแลเยอะที่สุด",
-                "35 วัน ของใคร"
+                "ลูกหนี้ที่ค้างเกิน 90 วัน ถึงกำหนดบอกเลิกสัญญามีกี่ราย",
+                "สัญญาสถานะ F บอกเลิก 35 วันมีใครบ้าง",
+                "รายชื่อลูกหนี้ที่ถึงกำหนดบอกเลิกสัญญาแล้ว",
+                "Stat2 F มีกี่สัญญา",
+                "ครบกำหนดบอกเลิก 35 วันมีเท่าไหร่",
+                "พนักงานคนไหนดูแลลูกหนี้ถึงกำหนดบอกเลิกเยอะที่สุด",
+                "สัญญาที่ค้างเกิน 35 วัน พ้นกำหนดแล้ว",
+                "35 วันของใครบ้าง"
             ]
         },
         "LEGAL_CASE": {
@@ -71,12 +82,14 @@
             "subcategory": "litigation",
             "params": [],
             "example_questions": [
-                "ลูกหนี้ที่ติดคดีมีกี่ราย",
-                "รายชื่อสัญญาที่ฟ้องแล้ว",
-                "ยอดหนี้ของคดี",
-                "ฟ้องไปกี่ราย",
-                "ติดคดีรายใด",
-                "ผู้ยึดใครฟ้องเยอะ"
+                "ลูกหนี้ที่ถูกฟ้องคดีมีกี่ราย",
+                "รายชื่อสัญญาที่อยู่ระหว่างฟ้องร้อง",
+                "Stat2 G ติดคดีมีเท่าไหร่",
+                "ยอดหนี้รวมของคดีที่ฟ้องแล้ว",
+                "พนักงานไหนดูแลลูกหนี้ติดคดีมากสุด",
+                "สัญญาที่ฟ้องศาลไปแล้ว",
+                "ลูกหนี้ที่ส่งกฎหมายแล้ว",
+                "ดูรายการสัญญาสถานะติดคดีทั้งหมด"
             ]
         },
         "TOP_INTEREST": {
@@ -86,11 +99,12 @@
             "subcategory": "interest",
             "params": [],
             "example_questions": [
-                "ใครมีดอกเบี้ยค้างเยอะที่สุด",
-                "TOP ดอกเบี้ย",
-                "สูงสุด 5 อันดับ",
-                "ดอกเบี้ยมากสุด",
-                "ใครถูกเก็บดอกเบี้ยสูงสุด"
+                "เรียงดอกเบี้ยค้างทั้งหมดจากมากไปน้อย",
+                "สัญญาที่มีดอกเบี้ยค้างชำระเยอะที่สุดทั้งระบบ",
+                "ใครมีดอกเบี้ยค้างสูงสุด เรียงลำดับทั้งหมด",
+                "แสดงดอกเบี้ยทุกสัญญาเรียงจากมากไปน้อย",
+                "พนักงานคนไหนดูแลสัญญาที่มีดอกเบี้ยสูง",
+                "ดอกเบี้ยค้างทั้งหมดเรียงใหม่"
             ]
         },
         "TOTAL_BALANCE": {
@@ -100,11 +114,13 @@
             "subcategory": "summary",
             "params": [],
             "example_questions": [
-                "ยอดหนี้รวมทั้งหมดเท่าไหร่",
-                "รวมยอด Bal ทุกสัญญา",
-                "ยอดหนี้ทั้งหมด",
-                "รวมทั้งระบบเป็นเท่าไหร่",
-                "ยอดอยู่เท่าไหร่ตอนนี้"
+                "ยอดหนี้รวมทั้งระบบตอนนี้เท่าไหร่",
+                "สรุปยอด Bal รวมทุกสัญญา",
+                "มีสัญญาทั้งหมดกี่ฉบับ ยอดรวมเท่าไหร่",
+                "ยอดหนี้คงเหลือรวมทั้งหมดในระบบ",
+                "ดอกเบี้ยค้างรวมทั้งหมดเท่าไหร่",
+                "ภาพรวมยอดหนี้ทั้งบริษัท",
+                "ยอดรวมทั้งหมดของ Bal และ BalTax"
             ]
         },
         "EMPLOYEE_PORTFOLIO": {
@@ -114,12 +130,13 @@
             "subcategory": "portfolio",
             "params": [],
             "example_questions": [
-                "พนักงานคนไหนดูแลหนี้เยอะที่สุด",
-                "สรุปยอดแต่ละ FolID",
-                "พนักงานไหนเก่งสุด",
-                "ยอดหนี้ของแต่ละคน",
-                "เปรียบเทียบพนักงาน",
-                "ใครจัดการเยอะมากที่สุด"
+                "พนักงานแต่ละคนดูแลยอดหนี้รวมเท่าไหร่",
+                "สรุปจำนวนสัญญาและยอดหนี้แยกตาม FolID",
+                "พนักงานคนไหนมี Portfolio หนี้เยอะที่สุด",
+                "เรียงพนักงานตามยอดหนี้ที่ดูแล",
+                "ใครรับผิดชอบหนี้มากที่สุดในระบบ",
+                "ยอดหนี้รวมของพนักงานทุกคน",
+                "เปรียบเทียบจำนวนสัญญาของแต่ละพนักงาน"
             ]
         },
         "EMPLOYEE_CONTRACTS": {
@@ -131,11 +148,14 @@
                 "fol_id"
             ],
             "example_questions": [
-                "พนักงาน 000001 ดูแลสัญญาอะไรบ้าง",
-                "รหัส 5 มีลูกหนี้กี่ราย",
-                "เจอส์ดูแลอะไรบ้าง",
-                "สัญญาของคนนั้น",
-                "ใครดูแลสัญญา XXX"
+                "พนักงานรหัส 000001 ดูแลสัญญาอะไรบ้าง",
+                "FolID 000055 มีลูกหนี้กี่รายและยอดรวมเท่าไหร่",
+                "ขอดูสัญญาทั้งหมดของพนักงาน 000107",
+                "รายการสัญญาทั้งหมดของ FolID 000024",
+                "พนักงาน 000080 ดูแลสัญญาอะไรบ้าง",
+                "ขอรายชื่อสัญญาในความดูแลของพนักงาน 000089",
+                "สัญญาทั้งหมดของคนที่รหัส FolID 000003",
+                "ลูกหนี้ที่อยู่ในความรับผิดชอบของพนักงานรหัส 000023"
             ]
         },
         "CONTRACT_DETAIL": {
@@ -147,12 +167,14 @@
                 "acc_no"
             ],
             "example_questions": [
-                "สัญญาเลขที่ 0SJ0001INN เป็นยังไง",
-                "เช็คสัญญา XXX",
-                "รายละเอียดสัญญา",
-                "สัญญา ABC ไป",
-                "ดูข้อมูลเฅอร์หนี้ 0SJ",
-                "ลูกค้าหายอตวอาย"
+                "ขอรายละเอียดสัญญา GGJ1530IIN10",
+                "เช็คสถานะสัญญา 0SJ0001INN",
+                "สัญญาเลขที่ MNJ0045ABC เป็นยังไงบ้าง",
+                "ยอดหนี้คงเหลือของสัญญา GGJ1530IIN10",
+                "ดูข้อมูลลูกหนี้สัญญา AAJ0123XYZ",
+                "สัญญา MFJ0099ZZZ พนักงานใครดูแล",
+                "รายละเอียดครบทุกอย่างของสัญญา DCJ0001IIN",
+                "ขอดู Bal Credit Interest ของสัญญา GGJ1530IIN10"
             ]
         },
         "NORMAL_STATUS": {
@@ -164,9 +186,13 @@
                 "branch_code"
             ],
             "example_questions": [
-                "ลูกหนี้ปกติมีกี่ราย",
-                "สัญญาที่ยังปกติปัจจุบัน",
-                "สถานะปกติแยกตามพนักงาน"
+                "ลูกหนี้ที่สถานะปกติ ไม่ค้างชำระ Stat2 A",
+                "รายชื่อสัญญาที่ยังจ่ายงวดตรงปกติดี",
+                "สัญญาสถานะ A ในสาขา MN",
+                "ลูกหนี้ไม่มีปัญหามีกี่รายทั้งหมด",
+                "ดูสัญญาที่ไม่ค้างชำระสาขา GG",
+                "ลูกหนี้ปกติแยกตามพนักงาน",
+                "สถานะ A มีกี่ราย"
             ]
         },
         "WRITTEN_OFF": {
@@ -176,28 +202,33 @@
             "subcategory": "writeoff",
             "params": [],
             "example_questions": [
-                "ลูกหนี้ตัดหนี้มีกี่ราย",
-                "สัญญาที่ตัดหนี้แล้ว",
-                "ยอดตัดหนี้รวมเท่าไหร่",
-                "หนี้ตัดแล้ว",
-                "ลูกค้าที่ตัดเลย"
+                "ลูกหนี้ที่ตัดหนี้สูญแล้ว Write-off มีกี่ราย",
+                "รายชื่อสัญญาที่โดนตัดหนี้แล้ว Stat2 H",
+                "ยอดตัดหนี้สูญรวมทั้งหมดเท่าไหร่",
+                "สัญญาที่ผ่านการ Write-off แล้ว",
+                "หนี้ที่ตัดออกจากบัญชีแล้วมีอะไรบ้าง",
+                "ดูรายการ Stat2 H ทั้งหมด",
+                "พนักงานไหนดูแลหนี้ที่ตัดแล้วเยอะที่สุด",
+                "หนี้ตัดออกมายอดรวมเท่าไหร่"
             ]
         },
         "VEHICLE_REPOSSESSED": {
             "sql": "SELECT LSM010.OLID, LSM010.AccNo, LSM010.CusId, LSM010.FolID, LSM007.FolName, LSM010.Bal FROM LSM010 INNER JOIN LSM007 ON LSM007.FolID = LSM010.FolID WHERE LSM010.AccStat = '3' AND LSM010.FolID != '' :branch_filter ORDER BY LSM010.Bal DESC",
-            "description": "สัญญาที่รถถูกยืด (AccStat=3) — รองรับ branch_code",
+            "description": "สัญญาที่รถถูกยึด (AccStat=3) — รองรับ branch_code",
             "category": "legal",
             "subcategory": "repossession",
             "params": [
                 "branch_code"
             ],
             "example_questions": [
-                "รถที่ถูกยืดมีกี่คัน",
-                "ยืดรถแล้วกี่ราย",
-                "พนักงานคนไหนดยืดรถเยอะที่สุด",
-                "ยืดไปกี่คัน",
-                "รถยืดของใคร",
-                "สาขา MN มีเลขที่สัญญาไหนบ้างที่ สถานะสัญญายึดรถ"
+                "สัญญาที่รถถูกยึดแล้วมีกี่ราย",
+                "รายชื่อสัญญา AccStat 3 ยึดรถแล้ว",
+                "รถถูกยึดในสาขา MN มีเท่าไหร่",
+                "พนักงานคนไหนดูแลสัญญาที่ยึดรถเยอะสุด",
+                "ยึดรถแล้วกี่คันสาขา GG",
+                "ดูรายการสัญญาที่รถโดนยึดทั้งหมด",
+                "สัญญาสถานะยึดรถมียอดค้างเท่าไหร่",
+                "AccStat 3 ในสาขา MN มีเลขสัญญาอะไรบ้าง"
             ]
         },
         "EMPLOYEE_COLLECTIONS_SUMMARY": {
@@ -207,9 +238,13 @@
             "subcategory": "collections",
             "params": [],
             "example_questions": [
-                "ค่าเช่าซื้อค้างทั้งหมดของแต่ละพนักงาน",
-                "ยอดค้างเน้นๆ ของเพื่อนเจอส",
-                "พนักงานคนไหนมีค้างเยอะที่สุด"
+                "พนักงานแต่ละคนมีค่างวดค้างดอกเบี้ยและค่าทวงถามรวมเท่าไหร่",
+                "สรุป Credit Interest Fee รวมแยกตามพนักงาน",
+                "พนักงานคนไหนมีค่างวดค้างชำระเยอะที่สุด",
+                "ยอดค้าง Credit และ Fee ของแต่ละ FolID",
+                "เปรียบเทียบยอดค้างชำระของพนักงานทุกคน",
+                "ค่าทวงถามรวมของแต่ละพนักงานเท่าไหร่",
+                "ใครมีลูกหนี้ค้างชำระรวมสูงที่สุด"
             ]
         },
         "DELINQUENCY_SUMMARY": {
@@ -219,11 +254,13 @@
             "subcategory": "aging",
             "params": [],
             "example_questions": [
-                "ลูกหนี้แต่ละสถานะมีกี่ราย",
-                "สรุปสถานะลูกหนี้ทั้งหมด",
-                "ฟีตแมปสถานะ aging",
-                "สถานะ A B C D F กี่อัน",
-                "Aging summary"
+                "สรุปจำนวนสัญญาแยกตาม Stat2 ทุกสถานะ",
+                "Aging summary ทั้งระบบ A B C D F G H",
+                "ลูกหนี้แต่ละสถานะ aging มีกี่รายและยอดรวมเท่าไหร่",
+                "ภาพรวมสถานะ Stat2 ทั้งหมด",
+                "จำนวนสัญญาในแต่ละ aging stage",
+                "สถานะ A ถึง H มีกี่รายแต่ละสถานะ",
+                "ยอดหนี้รวมแยกตาม Stat2"
             ]
         },
         "WATCH_LIST_ACCOUNTS": {
@@ -233,11 +270,13 @@
             "subcategory": "monitoring",
             "params": [],
             "example_questions": [
-                "สัญญาติด Watch List มีกี่ราย",
-                "ลูกค้าอันตรายที่เราเฝ้าดู",
-                "Watch List ของแต่ละพนักงาน",
-                "ติด Watch List กี่ราย",
-                "เฝ้าดู้อะไร"
+                "สัญญาที่ติด Watch List มีกี่ราย",
+                "รายชื่อลูกหนี้ที่อยู่ใน Watch List",
+                "ดูสัญญาที่ Watchlist = W",
+                "ลูกหนี้กลุ่มเฝ้าระวังมีใครบ้าง",
+                "Watch List แต่ละพนักงานมีกี่ราย",
+                "สัญญาที่ต้องเฝ้าระวังพิเศษ",
+                "ยอดหนี้รวมของลูกหนี้ใน Watch List"
             ]
         },
         "RESTRUCTURED_CONTRACTS": {
@@ -247,11 +286,13 @@
             "subcategory": "restructuring",
             "params": [],
             "example_questions": [
-                "ปรับปรุงหนี้มีกี่ราย",
-                "สัญญาที่ยืดอายุแล้ว",
-                "รีสทรัคเจอร์ของพนักงาน",
-                "ปรับปรุงเยอะสุดคืออะไร",
-                "ยืดอายุแล้วกี่เก"
+                "สัญญาที่ผ่านการปรับปรุงหนี้แล้ว AccStat 7",
+                "รายชื่อสัญญาที่ Restructure แล้ว",
+                "ปรับปรุงหนี้แล้วมีกี่รายและยอดรวมเท่าไหร่",
+                "สัญญาที่ยืดอายุหนี้แล้ว",
+                "ดูรายการ AccStat 7 ทั้งหมด",
+                "พนักงานคนไหนดูแลสัญญาปรับปรุงหนี้เยอะสุด",
+                "Restructure เยอะสุดคือสัญญาไหน"
             ]
         },
         "EMPLOYEE_DELINQUENCY": {
@@ -261,11 +302,13 @@
             "subcategory": "delinquency",
             "params": [],
             "example_questions": [
-                "พนักงานแต่ละคนมีลูกหนี้เตือนกี่ราย",
-                "การกระจายสถานะตามคน",
-                "ใครจัดการลูกหนี้แย่ที่สุด",
-                "เตือน A B C D ของใคร",
-                "พนักงานไหนปัญหา"
+                "พนักงานแต่ละคนมีลูกหนี้สถานะอะไรกี่รายบ้าง",
+                "สรุป Aging ของแต่ละพนักงานแยกตาม Stat2",
+                "ใครมีลูกหนี้สถานะ F หรือ G มากที่สุด",
+                "การกระจายสถานะ A B C D F ของพนักงานแต่ละคน",
+                "พนักงานไหนมีสัดส่วนหนี้เสียสูง",
+                "แสดงจำนวนสัญญาแยกสถานะ aging ต่อพนักงาน",
+                "พนักงานไหนมีลูกหนี้ค้างมากกว่า 90 วันเยอะ"
             ]
         },
         "PAYMENT_OVERDUE": {
@@ -275,11 +318,13 @@
             "subcategory": "overdue",
             "params": [],
             "example_questions": [
-                "สัญญาไหนมีค่าค้างจำหน่ายต่ำสุด",
-                "ค่าเช่าซื้อค้างมีกี่ราย",
-                "ดอกเบี้ยค้างต้องจัดการโดยพนักงานคนไหน",
-                "มีค้างชำระ",
-                "ค่าชำระสัญญา"
+                "สัญญาที่มียอดค้างชำระไม่ว่าจะเป็น Credit Interest หรือ Fee",
+                "รายชื่อสัญญาที่ค้างค่างวด ดอกเบี้ย หรือค่าทวงถาม",
+                "ลูกหนี้ที่มีค่าค้างชำระอยู่ในระบบมีกี่ราย",
+                "ดูสัญญาที่ Credit > 0 หรือ Interest > 0",
+                "ค้างชำระงวดล่าสุดเมื่อไหร่",
+                "มีค่าทวงถามค้างอยู่กี่ราย",
+                "สัญญาที่ยังมียอดค้างอยู่ทุกประเภท"
             ]
         },
         "TOP_5_INTEREST": {
@@ -289,9 +334,11 @@
             "subcategory": "interest",
             "params": [],
             "example_questions": [
-                "5 อันดับสัญญาที่มีดอกเบี้ยค้างสูงสุด",
-                "ขอ 5 รายที่ดอกเบี้ยเยอะสุด",
-                "top 5 ดอกเบี้ยค้าง"
+                "5 อันดับสัญญาที่มีดอกเบี้ยค้างสูงที่สุด",
+                "Top 5 ดอกเบี้ยค้างชำระ",
+                "ขอ 5 รายที่มีดอกเบี้ยเยอะสุดในระบบ",
+                "อันดับ 1 ถึง 5 ดอกเบี้ยค้างมากที่สุด",
+                "สัญญา 5 รายที่ดอกเบี้ยสูงที่สุด"
             ]
         },
         "UPCOMING_MATURITY": {
@@ -301,11 +348,13 @@
             "subcategory": "maturity",
             "params": [],
             "example_questions": [
-                "สัญญาไหนจะครบกำหนดไร้เร็ว",
-                "ผิดนัดใกล้หมดอายุสัญญา",
-                "ตรวจสอบกำหนดครบสัญญาก่อนบอกเลิก",
-                "ใกล่หมดแลว",
-                "กำหนดหมดสัญญา"
+                "สัญญาที่ใกล้ครบกำหนดเรียงจากใกล้ที่สุด",
+                "สัญญาที่จะหมดอายุเร็วๆ นี้มีอะไรบ้าง",
+                "EndAcc ใกล้มาที่สุดคือสัญญาไหน",
+                "ดูสัญญาที่ใกล้ครบกำหนดในเร็วๆ นี้",
+                "สัญญาสถานะปกติที่จะหมดสัญญาก่อน",
+                "กำหนดสิ้นสุดสัญญาเรียงลำดับ",
+                "ใกล้หมดงวดแล้วมีกี่ราย"
             ]
         },
         "INTEREST_OVER_25000_MN": {
@@ -315,7 +364,119 @@
             "subcategory": "interest",
             "params": [],
             "example_questions": [
-                "ขอรายชื่อสัญญาที่ยังค้างดอกเบี้ยเกิน 25000 บาท ของสาขา MN"
+                "สาขา MN มีสัญญาที่ค้างดอกเบี้ยเกิน 25000 บาทบ้าง",
+                "ขอรายชื่อสัญญาที่ดอกเบี้ยค้างมากกว่า 25000 ในสาขา MN",
+                "สาขา MN ดอกเบี้ยค้างเกิน 25,000 มีกี่ราย",
+                "Interest > 25000 ของสาขา MN",
+                "ดูสัญญา MN ที่ดอกเบี้ยค้างเยอะเกิน 25000 บาท"
+            ]
+        },
+        "CRM_CONTACT_LIST": {
+            "sql": "SELECT TOP 100 * FROM CRMDetail ORDER BY FDate DESC, FTime DESC",
+            "description": "รายชื่อการติดต่อลูกค้าล่าสุดจากระบบ CRM (CRMS)",
+            "category": "risk",
+            "subcategory": "monitoring",
+            "database": "crms",
+            "params": [],
+            "example_questions": [
+                "ดูประวัติการติดต่อลูกค้าล่าสุด 100 รายในระบบ CRM",
+                "รายการการติดตามหนี้ล่าสุดจาก CRMDetail",
+                "ขอดู CRM ล่าสุด 100 ราย",
+                "ประวัติติดต่อลูกหนี้ล่าสุดในระบบ CRMS",
+                "ดูผลการติดตามล่าสุดทั้งหมดจาก CRM",
+                "100 รายการ CRM ล่าสุด"
+            ]
+        },
+        "CONTRACT_FOLLOWUP_LOG": {
+            "sql": "SELECT sub.Section, sub.FDate, sub.FTime, sub.FDetail, sub.Due_Date, sub.Status1, sub.Status2 FROM ( SELECT '1_ล่าสุด_5_ครั้ง' AS Section, C.FDate, C.FTime, LEFT(CAST(C.FDetail AS varchar(500)),120) AS FDetail, C.Due_Date, F1.DesFol AS Status1, F2.DesFol AS Status2, ROW_NUMBER() OVER (ORDER BY C.FDate DESC, C.FTime DESC,C.Num DESC) AS rn FROM CRMDetail C LEFT JOIN CRMFol1 F1 ON C.Fol1=F1.CodeFol AND F1.StatusFol=1 LEFT JOIN CRMFol2 F2 ON C.Fol2=F2.CodeFol AND F2.StatusFol=1 WHERE C.AccNo=:acc_no ) sub WHERE sub.rn <= 5 UNION ALL SELECT sub2.Section, sub2.FDate, sub2.FTime, sub2.FDetail, sub2.Due_Date, sub2.Status1, sub2.Status2 FROM ( SELECT '2_ครั้งแรกสุด_3_ครั้ง' AS Section, C.FDate, C.FTime, LEFT(CAST(C.FDetail AS varchar(500)),120) AS FDetail, C.Due_Date, F1.DesFol AS Status1, F2.DesFol AS Status2, ROW_NUMBER() OVER (ORDER BY C.FDate ASC, C.FTime ASC) AS rn FROM CRMDetail C LEFT JOIN CRMFol1 F1 ON C.Fol1=F1.CodeFol AND F1.StatusFol=1 LEFT JOIN CRMFol2 F2 ON C.Fol2=F2.CodeFol AND F2.StatusFol=1 WHERE C.AccNo=:acc_no ) sub2 WHERE sub2.rn <= 3 UNION ALL SELECT '3_สถิติรวม' AS Section, NULL AS FDate, NULL AS FTime, 'ติดตามทั้งหมด ' + CAST(COUNT(*) AS varchar(10)) + ' ครั้ง | ครั้งแรก ' + MIN(C.FDate) + ' | ครั้งล่าสุด ' + MAX(C.FDate) AS FDetail, NULL AS Due_Date, (SELECT TOP 1 F1b.DesFol FROM CRMDetail Cb LEFT JOIN CRMFol1 F1b ON Cb.Fol1=F1b.CodeFol AND F1b.StatusFol=1 WHERE Cb.AccNo=:acc_no GROUP BY F1b.DesFol ORDER BY COUNT(*) DESC) AS Status1, (SELECT TOP 1 F2b.DesFol FROM CRMDetail Cb LEFT JOIN CRMFol2 F2b ON Cb.Fol2=F2b.CodeFol AND F2b.StatusFol=1 WHERE Cb.AccNo=:acc_no GROUP BY F2b.DesFol ORDER BY COUNT(*) DESC) AS Status2 FROM CRMDetail C WHERE C.AccNo=:acc_no UNION ALL SELECT '4_สถิติแยกสถานะ' AS Section, NULL AS FDate, NULL AS FTime, ISNULL(F1.DesFol,'ไม่ระบุ') + ' / ' + ISNULL(F2.DesFol,'ไม่ระบุ') + ' (' + CAST(COUNT(*) AS varchar(10)) + ' ครั้ง)' AS FDetail, NULL AS Due_Date, F1.DesFol AS Status1, F2.DesFol AS Status2 FROM CRMDetail C LEFT JOIN CRMFol1 F1 ON C.Fol1=F1.CodeFol AND F1.StatusFol=1 LEFT JOIN CRMFol2 F2 ON C.Fol2=F2.CodeFol AND F2.StatusFol=1 WHERE C.AccNo=:acc_no GROUP BY F1.DesFol, F2.DesFol ORDER BY Section, FDate DESC, FTime DESC",
+            "description": "ประวัติการติดตามรายสัญญา — สรุปครบทุกแถวด้วย pre-aggregate: 5 ล่าสุด + 3 แรกสุด + สถิติรวม + แยกสถานะ ต้องการ acc_no",
+            "category": "crm",
+            "subcategory": "history",
+            "database": "crms",
+            "params": [
+                "acc_no"
+            ],
+            "example_questions": [
+                "ขอประวัติการติดตามของสัญญา GGJ1530IIN10",
+                "ดู Log การโทรติดตามลูกค้าสัญญา GGJ1530IIN10",
+                "ประวัติการเจรจาของสัญญา MNJ0045ABC ทั้งหมด",
+                "เช็คว่าโทรหาลูกค้าสัญญา AAJ0001XYZ กี่ครั้งแล้ว",
+                "ผลการติดตามย้อนหลังของสัญญา GGJ1530IIN10",
+                "ติดต่อลูกค้า DCJ0001IIN ครั้งล่าสุดได้ผลยังไง",
+                "ดูบันทึกการติดตามพร้อมคำอธิบายสถานะ Fol1 Fol2 ของสัญญา MFJ0099ZZZ",
+                "CRM Log ของสัญญา GGJ1530IIN10 ตั้งแต่ต้น"
+            ]
+        },
+        "CRM_APPOINTMENT_LIST": {
+            "sql": "SELECT C.AccNo, C.FDate, C.Due_Date, C.FDetail, L.OLID, L.Bal, L.Interest FROM CRMDetail C INNER JOIN [lspdata].[dbo].[LSM010] L ON C.AccNo = L.AccNo WHERE C.Due_Date = :due_date",
+            "description": "รายชื่อลูกหนี้ที่นัดชำระเงิน (Due Date) — ต้องการ due_date (YYYYMMDD)",
+            "category": "crm",
+            "subcategory": "appointment",
+            "database": "crms",
+            "params": [
+                "due_date"
+            ],
+            "example_questions": [
+                "วันนี้มีลูกหนี้นัดชำระกี่ราย",
+                "ใครนัดจ่ายเงินวันที่ 20250422 บ้าง",
+                "ดูคิวเก็บเงินพรุ่งนี้วันที่ 20250423",
+                "รายชื่อลูกหนี้ที่นัดไว้วันที่ 20250430",
+                "Due Date 20250425 มีใครบ้าง",
+                "ลูกหนี้ที่นัดชำระในวันที่ 20250501"
+            ]
+        },
+        "COLLECTOR_ACTIVITY_SUMMARY": {
+            "sql": "SELECT C.EmpID, COUNT(*) AS TotalActions, SUM(CAST(F1.StatusS AS INT)) AS SuccessStatus1, SUM(CAST(F2.StatusS AS INT)) AS SuccessStatus2 FROM CRMDetail C LEFT JOIN CRMFol1 F1 ON C.Fol1 = F1.CodeFol LEFT JOIN CRMFol2 F2 ON C.Fol2 = F2.CodeFol WHERE C.Mth = :mth AND C.Yrs = :yrs GROUP BY C.EmpID ORDER BY TotalActions DESC",
+            "description": "สรุปผลงานพนักงานติดตามหนี้แยกตามเดือน/ปี — ต้องการ mth, yrs",
+            "category": "crm",
+            "subcategory": "performance",
+            "database": "crms",
+            "params": [
+                "mth",
+                "yrs"
+            ],
+            "example_questions": [
+                "สรุปผลงานพนักงานติดตามหนี้เดือน 04 ปี 2025",
+                "พนักงานคนไหนโทรติดตามลูกหนี้เยอะที่สุดเดือนนี้",
+                "วัดผล Collector เดือน 03 ปี 2025",
+                "EmpID ไหนทำงานเยอะสุดในเดือน 04/2025",
+                "สรุปจำนวนการติดตามแยกพนักงานเดือน 02 ปี 2025",
+                "Collector แต่ละคน Action กี่ครั้งเดือน 01 ปี 2025"
+            ]
+        },
+        "CRM_FOLLOWUP_STATUS_COUNTS": {
+            "sql": "SELECT COALESCE(F2.DesFol, F1.DesFol, 'อื่นๆ') AS StatusName, COUNT(*) AS CaseCount FROM CRMDetail C LEFT JOIN CRMFol1 F1 ON C.Fol1 = F1.CodeFol AND F1.StatusFol = 1 LEFT JOIN CRMFol2 F2 ON C.Fol2 = F2.CodeFol AND F2.StatusFol = 1 WHERE C.Mth = :mth AND C.Yrs = :yrs GROUP BY COALESCE(F2.DesFol, F1.DesFol, 'อื่นๆ') ORDER BY CaseCount DESC",
+            "description": "สรุปจำนวนสถานะการติดตาม (เช่น ปิดเครื่อง, นัดชำระ) — ต้องการ mth, yrs",
+            "category": "crm",
+            "subcategory": "statistics",
+            "database": "crms",
+            "params": [
+                "mth",
+                "yrs"
+            ],
+            "example_questions": [
+                "เดือน 04 ปี 2025 มีผลการโทรแบบไหนกี่ครั้ง",
+                "สรุปสถานะการติดตามลูกหนี้เดือน 03/2025",
+                "ติดต่อไม่ได้ ปิดเครื่อง นัดชำระ เดือนนี้มีกี่ราย",
+                "สถิติผลการโทรแยกประเภทเดือน 02 ปี 2025",
+                "ผลการติดตาม Fol1 Fol2 เดือน 04 มีสถานะอะไรบ้าง",
+                "เดือน 01/2025 ผลที่ออกมาบ่อยสุดคืออะไร"
+            ]
+        },
+        "CONTRACT_FOLLOWUP_ANALYSIS": {
+            "sql": "SELECT '1_สถิติรวม' AS Section, CAST(SUM(CASE WHEN ISNULL(F1.StatusS,'0')='1' OR ISNULL(F2.StatusS,'0')='1' THEN 1 ELSE 0 END) AS varchar(10)) AS SuccessCount, CAST(SUM(CASE WHEN ISNULL(F1.StatusS,'0')='0' AND ISNULL(F2.StatusS,'0')='0' THEN 1 ELSE 0 END) AS varchar(10)) AS FailCount, CAST(COUNT(*) AS varchar(10)) AS TotalCount, NULL AS FDate, NULL AS FDetail, NULL AS Status1, NULL AS Status2 FROM CRMDetail C LEFT JOIN CRMFol1 F1 ON C.Fol1=F1.CodeFol AND F1.StatusFol=1 LEFT JOIN CRMFol2 F2 ON C.Fol2=F2.CodeFol AND F2.StatusFol=1 WHERE C.AccNo=:acc_no UNION ALL SELECT '2_ล่าสุดที่ติดต่อได้' AS Section, NULL AS SuccessCount, NULL AS FailCount, NULL AS TotalCount, T.FDate, T.FDetail, T.Status1, T.Status2 FROM (   SELECT TOP 1 C.FDate, C.FTime, LEFT(CAST(C.FDetail AS varchar(500)),200) AS FDetail, F1.DesFol AS Status1, F2.DesFol AS Status2   FROM CRMDetail C   LEFT JOIN CRMFol1 F1 ON C.Fol1=F1.CodeFol AND F1.StatusFol=1   LEFT JOIN CRMFol2 F2 ON C.Fol2=F2.CodeFol AND F2.StatusFol=1   WHERE C.AccNo=:acc_no AND (ISNULL(F1.StatusS,'0')='1' OR ISNULL(F2.StatusS,'0')='1')   ORDER BY C.FDate DESC, C.FTime DESC,C.Num DESC ) T UNION ALL SELECT '3_ล่าสุด_5_ครั้ง' AS Section, NULL AS SuccessCount, NULL AS FailCount, NULL AS TotalCount, C.FDate, C.FDetail, F1.DesFol AS Status1, F2.DesFol AS Status2 FROM (   SELECT TOP 5 C2.FDate, C2.FTime, C2.Fol1, C2.Fol2, LEFT(CAST(C2.FDetail AS varchar(500)),120) AS FDetail   FROM CRMDetail C2 WHERE C2.AccNo=:acc_no   ORDER BY C2.FDate DESC, C2.FTime DESC ) C LEFT JOIN CRMFol1 F1 ON C.Fol1=F1.CodeFol AND F1.StatusFol=1 LEFT JOIN CRMFol2 F2 ON C.Fol2=F2.CodeFol AND F2.StatusFol=1",
+            "description": "วิเคราะห์ประวัติการติดตามรายสัญญา: จำนวนครั้งติดต่อได้/ไม่ได้ + ครั้งล่าสุดที่ติดต่อได้ — ต้องการ acc_no",
+            "category": "crm",
+            "subcategory": "analysis",
+            "database": "crms",
+            "params": [
+                "acc_no"
+            ],
+            "example_questions": [
+                "สัญญา GGJ1530IIN10 ติดต่อไม่ได้มาแล้วกี่ครั้ง",
+                "ครั้งล่าสุดที่ติดต่อได้สัญญา GGJ1530IIN10 คือวันไหน",
+                "สัญญา MNJ0045ABC โทรแล้วรับสายกี่ครั้ง ไม่รับกี่ครั้ง",
+                "ประวัติการติดต่อสำเร็จของสัญญา AAJ0001XYZ"
             ]
         }
     }

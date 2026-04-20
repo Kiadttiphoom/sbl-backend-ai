@@ -44,6 +44,12 @@ TEMPLATE_CATEGORIES: Dict[str, Dict[str, str]] = {
     for name, template_info in _QUERIES_DATA["templates"].items()
 }
 
+# Build template → database mapping (default: lspdata)
+TEMPLATE_DB_MAP: Dict[str, str] = {
+    name: template_info.get("database", "lspdata")
+    for name, template_info in _QUERIES_DATA["templates"].items()
+}
+
 
 # Group templates by category
 def _group_by_category() -> Dict[str, list]:
@@ -71,6 +77,7 @@ def get_category_list() -> str:
         "accounting": "บัญชี — สรุป, ตัดหนี้, Aging",
         "legal": "คดีความ — ติดคดี, ยึดรถ",
         "risk": "ความเสี่ยง — Watch List, Restructuring",
+        "crm": "CRM — ประวัติการติดตามลูกค้า, การนัดชำระเงิน, ผลงานพนักงานเก็บหนี้",
     }
     return "\n".join([f"- {k}: {v}" for k, v in categories.items()])
 
@@ -81,9 +88,14 @@ def get_templates_by_category(category: str) -> Dict[str, str]:
     return {name: SQL_TEMPLATES[name] for name in templates if name in SQL_TEMPLATES}
 
 
+def get_template_db(template_name: str) -> str:
+    """คืนค่า database alias ที่ template นี้ต้องใช้ (lspdata, crms, etc.)"""
+    return TEMPLATE_DB_MAP.get(template_name, "lspdata")
+
+
 def reload_queries():
     """Hot-reload queries from JSON without restarting server."""
-    global SQL_TEMPLATES, TEMPLATE_DESCRIPTIONS, TEMPLATE_EXAMPLES, TEMPLATE_CATEGORIES, TEMPLATES_BY_CATEGORY, _QUERIES_DATA
+    global SQL_TEMPLATES, TEMPLATE_DESCRIPTIONS, TEMPLATE_EXAMPLES, TEMPLATE_CATEGORIES, TEMPLATE_DB_MAP, TEMPLATES_BY_CATEGORY, _QUERIES_DATA
     try:
         _QUERIES_DATA = _load_queries()
         SQL_TEMPLATES = {
@@ -106,6 +118,10 @@ def reload_queries():
             for name, template_info in _QUERIES_DATA["templates"].items()
         }
         TEMPLATES_BY_CATEGORY = _group_by_category()
+        TEMPLATE_DB_MAP = {
+            name: template_info.get("database", "lspdata")
+            for name, template_info in _QUERIES_DATA["templates"].items()
+        }
         logger.info(f"✅ Reloaded {len(SQL_TEMPLATES)} templates from queries.json")
         return True
     except Exception as e:
@@ -157,6 +173,15 @@ def render_query(template_name: str, params: Dict[str, Any]) -> Tuple[str, list]
         else:
             safe_val = str(value).replace("'", "''")
             query = query.replace(placeholder, f"'{safe_val}'")
+
+    # ── Safety check: ถ้ายังมี :placeholder เหลืออยู่ → ขาด param ─────────────
+    import re as _re
+    remaining = _re.findall(r":[a-z_]+", query)
+    if remaining:
+        raise ValueError(
+            f"SQL template '{template_name}' ยังมี placeholder ที่ยังไม่ถูก render: "
+            f"{remaining} — params ที่ได้รับ: {list(params.keys())}"
+        )
 
     logger.debug("Rendered SQL [%s]: %s", template_name, query)
     return query, []
