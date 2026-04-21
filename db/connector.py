@@ -31,7 +31,6 @@ class _ConnectionPool:
     def _new_conn(self) -> pyodbc.Connection:
         try:
             conn = pyodbc.connect(self._dsn, autocommit=True)
-            conn.timeout = 30
             return conn
         except Exception as e:
             logger.error("DB connect failed: %s", e)
@@ -47,10 +46,11 @@ class _ConnectionPool:
         if conn is None:
             conn = self._new_conn()
 
-        # liveness check ก่อน yield — เพื่อหลีกเลี่ยง double-yield ใน contextmanager
-        # (yield สองครั้งใน @contextmanager ทำให้เกิด "generator didn't stop after throw()")
+        # liveness check — ใช้ explicit cursor เพื่อป้องกัน conn ถูกแทนที่ด้วย Cursor
         try:
-            conn.execute("SELECT 1")
+            cur = conn.cursor()
+            cur.execute("SELECT 1")
+            cur.close()
         except Exception:
             try:
                 conn.close()

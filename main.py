@@ -1,5 +1,6 @@
+import time
 import logging
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from config import ALLOWED_ORIGINS
 
@@ -25,6 +26,15 @@ app.add_middleware(
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    start_time = time.time()
+    logger.info(f"🚀 Request started: {request.method} {request.url.path}")
+    response = await call_next(request)
+    process_time = (time.time() - start_time) * 1000
+    logger.info(f"✅ Request finished: {request.method} {request.url.path} - Status: {response.status_code} - Timing: {process_time:.2f}ms")
+    return response
 
 app.include_router(ask.router)
 app.include_router(health.router)

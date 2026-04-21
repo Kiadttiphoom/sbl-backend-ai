@@ -100,73 +100,100 @@ class AnalysisEngine:
     def _translate_value(self, key: str, val: Any, schema: Dict[str, Any]) -> str:
         if val is None or val == "":
             return "-"
+        
+        val_str = str(val).strip()
+        # Auto-format YYYYMMDD date strings (e.g., 20250422 -> 22/04/2025)
+        if len(val_str) == 8 and val_str.isdigit() and val_str.startswith(("20", "25", "19")):
+            try:
+                y, m, d = val_str[:4], val_str[4:6], val_str[6:]
+                if 1 <= int(m) <= 12 and 1 <= int(d) <= 31:
+                    return f"{d}/{m}/{y}"
+            except Exception:
+                pass
+
+        # DATA CLEANUP: ลบเบอร์โทรศัพท์ออกจากรายละเอียด (FDetail) เพื่อประหยัด Token และอ่านง่าย
+        if key.upper() == "FDETAIL":
+            import re
+            # ลบเบอร์โทร 9-10 หลัก (08xxxxxxxx, 06xxxxxxxx, 02-xxx-xxxx)
+            val_str = re.sub(r"0[1-9][0-9]-?[0-9]{3,4}-?[0-9]{4}", "[TEL]", val_str)
+            # ลบข้อความที่มักยาวเกินไปและซ้ำซ้อน
+            val_str = val_str.replace("ผู้ซื้อ ไม่รับสาย", "ไม่รับสาย").replace("ไม่เปิดบริการ", "ปิดเครื่อง")
+
         for table in ("LSM010", "LSM007"):
             options = (
                 schema.get(table, {}).get("columns", {}).get(key, {}).get("options")
             )
-            if options and str(val) in options:
-                return options[str(val)]
-        return str(val)
+            if options and val_str in options:
+                return options[val_str]
+        return val_str
 
     def format_db_results(
-        self, results: List[Dict[str, Any]], schema: Dict[str, Any], question: str = ""
+        self, 
+        results: List[Dict[str, Any]], 
+        schema: Dict[str, Any], 
+        question: str = "",
+        intent: str = "DATA_QUERY"
     ) -> str:
         if not results:
             return "ไม่พบข้อมูลที่ต้องการในระบบ"
 
         from core.pipeline import pipeline
-
         results = pipeline.run(results)
 
         # ── Data Sampling Logic ────────────────────────────────────────────────
-        # ถ้าเป็นข้อมูลประวัติ (History) หรือจำนวนเยอะมาก ให้ลดจำนวนที่ส่งไป AI
-        # เพื่อป้องกัน LLM Timeout หรือ Context Overflow
         limit = 100
-        is_crm_log = any(k.upper() in ("FDATE", "FDETAIL", "STATUS1") for k in results[0].keys())
+        keys = list(results[0].keys())
+        is_crm_log = any(k.upper() in ("FDATE", "FDETAIL", "STATUS1") for k in keys)
+        has_section = any(k.upper() in ("SECTION", "หมวดหมู่") for k in keys)
         
-        if is_crm_log:
-            # CRM Log → เอาแค่ 15 รายการล่าสุด เพื่อป้องกัน LLM timeout
+        # Fast Advisory Mode: ถ้าเป็นการวิเคราะห์ ให้ตัดเอาเฉพาะสรุป (Section 1 & 2)
+        if intent == "ADVISORY" and has_section:
+            # เก็บเฉพาะสถิติ (1) และรายการสำคัญ (2) ตัดประวัติดิบ (3) ทิ้งเพื่อความเร็ว
+            results = [r for r in results if str(r.get("Section") or "").startswith(("1", "2"))]
+            limit = 20
+            logger.info("Formatter: ADVISORY mode active, filtering for summary sections only")
+
+        elif is_crm_log:
+            # Standard CRM Log → เอาแค่ 15 รายการล่าสุด
             limit = 15
             logger.info("Formatter: CRM Log detected, sampling top %d rows", limit)
-            # ตัด column ที่ไม่จำเป็นออกเพื่อลด context size
             _CRM_DROP_COLS = {"MTH", "YRS", "NUM", "EMPID", "FTIME"}
             results = [
                 {k: v for k, v in row.items() if k.upper() not in _CRM_DROP_COLS}
                 for row in results
             ]
 
+        # Sort by Section if exists
+        if has_section:
+            results = sorted(results, key=lambda r: str(r.get("Section") or ""))
+            
         sample = results[:limit]
         keys = list(sample[0].keys())
         headers = [self._get_label(k, schema) for k in keys]
 
-        # ── Advanced Sectional Formatting ───────────────────────────────
-        # ถ้ามีคอลัมน์ Section/หมวดหมู่ ให้ใช้ format ที่ AI อ่านแล้วไม่หลงคอลัมน์
-        has_section = any(k.upper() in ("SECTION", "หมวดหมู่") for k in keys)
-        
+        # ── HYBRID Formatting ───────────────────────────────
         if has_section:
-            sections = []
+            output_parts = []
+            current_section = None
+            section_rows = []
+
             for row in sample:
-                section_name = str(row.get("Section") or row.get("หมวดหมู่") or "ข้อมูล")
-                details = []
-                for k in keys:
-                    if k.upper() in ("SECTION", "หมวดหมู่"): continue
-                    val = self._translate_value(k, row[k], schema)
-                    if val is None or str(val).upper() == "NULL": continue
-                    
-                    label = self._get_label(k, schema)
-                    # Format money
-                    if k.upper() in _NUMERIC_KEYS and isinstance(row[k], (int, float)):
-                        val = f"{row[k]:,.2f} บาท"
-                    
-                    v_str = str(val).replace("\n", " ").strip()
-                    if len(v_str) > 200: v_str = v_str[:197] + "..."
-                    details.append(f"- {label}: {v_str}")
-                
-                sections.append(f"### {section_name}\n" + "\n".join(details))
+                sec = str(row.get("Section") or row.get("หมวดหมู่") or "ข้อมูล")
+                if sec != current_section:
+                    if section_rows:
+                        # Format previous section
+                        output_parts.append(self._format_section(current_section, section_rows, keys, schema))
+                    current_section = sec
+                    section_rows = [row]
+                else:
+                    section_rows.append(row)
             
-            ctx = "\n\n".join(sections)
+            if section_rows:
+                output_parts.append(self._format_section(current_section, section_rows, keys, schema))
+            
+            ctx = "\n\n".join(output_parts)
         else:
-            # ── Standard Table Formatting ───────────────────────────────
+            # ── Standard Table Formatting (Fallback) ───────────────────────────────
             lines = [
                 "| " + " | ".join(headers) + " |",
                 "|" + "|".join(["---"] * len(headers)) + "|",
@@ -177,9 +204,8 @@ class AnalysisEngine:
                     v = self._translate_value(k, row[k], schema)
                     raw = row[k]
                     if k.upper() in _NUMERIC_KEYS and isinstance(raw, (int, float)):
-                        v = f"{raw:,.2f} บาท"
-                    
-                    v_str = str(v).replace("\n", " ").replace("\r", " ").replace("|", "\\|").strip()
+                        v = f"{raw:,.2f}"
+                    v_str = str(v).replace("\n", " ").replace("|", "\\|").strip()
                     if len(v_str) > 200: v_str = v_str[:197] + "..."
                     cells.append(v_str)
                 lines.append("| " + " | ".join(cells) + " |")
@@ -189,6 +215,54 @@ class AnalysisEngine:
             ctx += f"\n\n*... (และข้อมูลส่วนที่เหลืออีก {len(results) - limit} รายการ ถูกตัดออกเพื่อความเร็ว)*"
         
         return ctx
+
+    def _format_section(self, name: str, rows: List[Dict], keys: List[str], schema: Dict) -> str:
+        """Helper to format a specific section as either a Table or a List."""
+        # Cleanup name: "1_ล่าสุด_5_ครั้ง" -> "ล่าสุด 5 ครั้ง"
+        import re
+        clean_name = re.sub(r"^\d+_", "", name).replace("_", " ")
+        
+        # บังคับให้เป็นตารางสำหรับ Section 1, 2 หรือหัวข้อพวกประวัติ/สถิติ
+        is_table = (
+            name.startswith(("1", "2")) or 
+            any(k in clean_name for k in ("สถิติ", "ประวัติ", "ล่าสุด"))
+        )
+        
+        if is_table:
+            headers = [self._get_label(k, schema) for k in keys if k.upper() not in ("SECTION", "หมวดหมู่")]
+            lines = [
+                f"### {clean_name}",
+                "| " + " | ".join(headers) + " |",
+                "|" + "|".join(["---"] * len(headers)) + "|",
+            ]
+            for r in rows:
+                cells = []
+                for k in keys:
+                    if k.upper() in ("SECTION", "หมวดหมู่"): continue
+                    val = self._translate_value(k, r[k], schema)
+                    if k.upper() in _NUMERIC_KEYS and isinstance(r[k], (int, float)):
+                        val = f"{r[k]:,.2f}"
+                    v_str = str(val).replace("\n", " ").replace("|", "\\|").strip()
+                    cells.append(v_str)
+                lines.append("| " + " | ".join(cells) + " |")
+            return "\n".join(lines)
+        
+        # Section อื่นๆ (เช่น Last Contact) ให้เป็น List เพื่อให้อ่านง่ายขึ้น
+        items = [f"### {clean_name}"]
+        for r in rows:
+            details = []
+            for k in keys:
+                if k.upper() in ("SECTION", "หมวดหมู่"): continue
+                val = self._translate_value(k, r[k], schema)
+                if val is None or str(val).upper() == "NULL": continue
+                label = self._get_label(k, schema)
+                if k.upper() in _NUMERIC_KEYS and isinstance(r[k], (int, float)):
+                    val = f"{r[k]:,.2f} บาท"
+                v_str = str(val).replace("\n", " ").strip()
+                if len(v_str) > 250: v_str = v_str[:247] + "..."
+                details.append(f"- {label}: {v_str}")
+            items.append("\n".join(details))
+        return "\n\n".join(items)
 
     def get_summary_stats(self, results: List[Dict[str, Any]]) -> str:
         if not results:

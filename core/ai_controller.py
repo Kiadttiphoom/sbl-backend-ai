@@ -13,7 +13,7 @@ import re
 import json
 import logging
 import time
-from typing import AsyncGenerator, Dict, Any, List
+from typing import AsyncGenerator, Dict, Any, List, Optional
 
 from core.semantic_layer import SemanticLayer
 from security.query_validator import QueryValidator
@@ -58,12 +58,17 @@ def _load_schema() -> str:
         return "{}"
 
 
-DB_SCHEMA_DICT = json.loads(_load_schema())
+_DB_SCHEMA_DICT = json.loads(_load_schema())
+_DB_SCHEMA_TEXT_CACHE: Optional[str] = None
 
 
-def _format_schema_for_ai():
+def _get_schema_text():
+    global _DB_SCHEMA_TEXT_CACHE
+    if _DB_SCHEMA_TEXT_CACHE:
+        return _DB_SCHEMA_TEXT_CACHE
+
     text = "=== SEMANTIC GUIDE ===\n"
-    guide = DB_SCHEMA_DICT.get("_semantic_guide", {})
+    guide = _DB_SCHEMA_DICT.get("_semantic_guide", {})
     text += f"Purpose: {guide.get('purpose')}\n"
     text += f"Join Rules: {guide.get('join_rule')}\n"
     text += f"SQL Dialect: {guide.get('sql_dialect')}\n"
@@ -72,7 +77,7 @@ def _format_schema_for_ai():
         text += f"  - {intent}: {logic}\n"
 
     text += "\n=== TABLES & COLUMNS ===\n"
-    for table, info in DB_SCHEMA_DICT.items():
+    for table, info in _DB_SCHEMA_DICT.items():
         if table.startswith("_"):
             continue
         text += f"TABLE: {table} ({info.get('description', '')})\n"
@@ -83,10 +88,9 @@ def _format_schema_for_ai():
             keywords = ", ".join(col_info.get("keywords", []))
             opts = col_info.get("options", "")
             text += f"  - {col} ({b_name}): {desc} | Keywords: [{keywords}] | Options: {opts}\n"
+    
+    _DB_SCHEMA_TEXT_CACHE = text
     return text
-
-
-DB_SCHEMA_TEXT = _format_schema_for_ai()
 
 # ── Forbidden SQL keywords (compile once) ────────────────────────────────────
 _FORBIDDEN_RE = re.compile(
@@ -225,6 +229,49 @@ class AIController:
         except Exception as e:
             logger.error("Dynamic SQL failed: %s", e)
             return "NO_SQL"
+
+    # ── CHITCHAT Shortcut — ตอบทันทีโดยไม่ต้องรอ LLM ────────────────────────
+    _CHITCHAT_PATTERNS: list[tuple[list[str], str]] = [
+        # ทักทาย
+        (["สวัสดี", "หวัดดี", "hello", "hi ", "^hi$", "ดีครับ", "ดีค่ะ"],
+         "สวัสดีครับ! ผมคือ SBL AI ผู้ช่วยข้อมูลสัญญาเช่าซื้อของ SBL พร้อมช่วยคุณเสมอครับ 😊"),
+
+        # ตัวตน
+        (["คุณคือใคร", "คือใคร", "แนะนำตัว", "ตัวเองคือ", "คุณเป็นใคร", "who are you"],
+         "ผมคือ SBL AI ผู้ช่วยอัจฉริยะของบริษัท SBL ครับ ทำหน้าที่ช่วยค้นหาและวิเคราะห์ข้อมูลสัญญาเช่าซื้อ ยอดหนี้ สถานะลูกหนี้ และประวัติการติดตามทั้งหมดในระบบครับ"),
+
+        # ความสามารถ
+        (["ช่วยอะไรได้", "ทำอะไรได้", "ความสามารถ", "ใช้ทำอะไร", "มีอะไรบ้าง",
+          "ช่วยได้อะไร", "ทำได้อะไร", "what can you do"],
+         "ผมสามารถช่วยคุณได้หลายอย่างครับ เช่น:"
+         "• ค้นหา**รายละเอียดสัญญา** — ยอดหนี้ สถานะ พนักงานดูแล"
+         "• ดู**ลูกหนี้ค้างชำระ** — กลุ่มเตือน B/C/D, ครบกำหนด 35 วัน, ติดคดี"
+         "• สรุป**ยอดหนี้รายสาขา** หรือ**รายพนักงาน**"
+         "• ดู**ประวัติการติดตาม** (CRM Log) ของแต่ละสัญญา"
+         "• ค้นหา**Watch List**, สัญญา**ยึดรถ**, สัญญา**ปรับปรุงหนี้**"
+         "ลองถามผมได้เลยครับ เช่น 'สาขา MN มีลูกหนี้ค้างกี่ราย' หรือ 'ดูประวัติสัญญา GGJ1530IIN10'"),
+
+        # ขอบคุณ
+        (["ขอบคุณ", "ขอบใจ", "thank", "thanks"],
+         "ยินดีครับ มีอะไรให้ช่วยอีกได้เลยครับ 😊"),
+
+        # ลาก่อน
+        (["ลาก่อน", "บ๊ายบาย", "bye", "goodbye", "แล้วเจอกัน"],
+         "ลาก่อนครับ! หากต้องการข้อมูลเพิ่มเติมทักมาได้เลยนะครับ 👋"),
+    ]
+
+    def _chitchat_reply(self, q: str) -> str | None:
+        """
+        ตรวจว่าคำถามเป็น chitchat/identity → คืน reply สำเร็จรูปทันที
+        คืน None ถ้าไม่ใช่ (ให้ pipeline ทำงานต่อ)
+        """
+        ql = q.lower().strip()
+        for patterns, reply in self._CHITCHAT_PATTERNS:
+            for pat in patterns:
+                if re.search(pat, ql):
+                    logger.info("⚡ CHITCHAT shortcut matched: '%s'", pat)
+                    return reply
+        return None
 
     # ── Keyword Priority Rules ────────────────────────────────────────────────
     # ภาษาไทยไม่มี space ระหว่างคำ → token overlap เพียงอย่างเดียวแยกแยะไม่ได้
@@ -425,7 +472,15 @@ Output JSON: {{"category": "...", "template_name": "...", "params": {{}}}}
             if injected:
                 raise SecurityError("คำถามไม่ผ่านการตรวจสอบความปลอดภัย", details=pattern)
 
-            # 2. Intent detection
+            # 2. CHITCHAT shortcut — ตอบทันทีโดยไม่ต้องรอ LLM
+            chitchat_reply = self._chitchat_reply(q)
+            if chitchat_reply is not None:
+                yield self._event("intent", intent="CHITCHAT", confidence="high")
+                yield self._event("content", content=chitchat_reply)
+                yield self._event("done", elapsed=round(time.time() - start_time, 2))
+                return
+
+            # 3. Intent detection
             yield self._event("status", content="กำลังทำความเข้าใจสิ่งที่คุณต้องการครับ...")
             intent_res = detect_intent(q, history)
             intent = intent_res["intent"]
@@ -440,7 +495,8 @@ Output JSON: {{"category": "...", "template_name": "...", "params": {{}}}}
             # 3. DATA_QUERY / ADVISORY routing
             if intent in ("DATA_QUERY", "ADVISORY"):
                 # Force Advisory if keywords match, even if intent was DATA_QUERY
-                advisory_keywords = r"(ทำยังไง|ทํายังไง|ทําไม|ทำไม|อย่างไร|แนะนำ|ควรจะ|แนวทาง|วิธี|แก้ปัญหา|ตามได้ไง|วิเคราะห์|ยังไงดี)"
+                # Force Advisory if keywords match
+                advisory_keywords = r"(ทำยังไง|ทํายังไง|ทำไม|ทําไม|อย่างไร|แนะนำ|ควรจะ|แนวทาง|วิธี|แก้ปัญหา|ตามได้ไง|วิเคราะห์|ยังไงดี|ให้ติดตามได้|ให้ติดตามหนี้ได้|ให้จ่ายได้|ให้ชำระได้|ทำให้จ่าย|ทำให้ชำระ|จะทำให้|จะช่วยได้|จะแก้ได้|ควรทำอะไร)"
                 if re.search(advisory_keywords, q.lower()) and history:
                     intent = "ADVISORY"
 
@@ -458,81 +514,51 @@ Output JSON: {{"category": "...", "template_name": "...", "params": {{}}}}
                 if intent == "DATA_QUERY":
                     yield self._event("status", content="เดี๋ยวผมลองค้นหาข้อมูลในระบบให้นะครับ...")
 
-                # ⚡ Fast Path: keyword match ก่อน (ไม่รอ LLM)
-                fast = self._fast_route(q)
-                if fast:
-                    decision = fast
-                else:
-                    # Fallback: LLM routing (~40 วิ)
-                    yield self._event("status", content="กำลังวิเคราะห์คำถามสักครู่นะครับ...")
-                    decision = await self._route_request(q)
-
-                template_name = decision.get("template_name", "UNKNOWN")
-                params = decision.get("params", {})
-                logger.info("Route → template: %s", template_name)
-
-                sql = "NO_SQL"
-
-                target_db = "lspdata"  # Default
-                if template_name != "UNKNOWN" and template_name in SQL_TEMPLATES:
-                    sql, _ = render_query(template_name, params)
-                    target_db = get_template_db(template_name)
-                    logger.info("SQL (template on %s): %.1000s", target_db, sql)
-                    yield self._event("sql", sql=sql)
-                else:
-                    yield self._event(
-                        "status", content="ขอเวลาผมตีความหมายข้อมูลสักครู่นะครับ..."
-                    )
-                    semantic = await self.semantic_layer.extract_intent(q)
-                    logger.info(f"Semantic Intent: {semantic}")
-
-                    # ตรวจก่อนว่า dynamic SQL นี้ควรไปฐานไหน
-                    target_db = self._detect_target_db(q)
-                    logger.info("Dynamic SQL target_db (pre-generate): %s", target_db)
-
-                    yield self._event("status", content="กำลังเตรียมข้อมูลมาให้ดูนะครับ...")
-                    sql = await self._generate_dynamic_sql(q, semantic, history)
-                    logger.info("Raw Generated SQL: %.500s", sql)
-
-                    # ตรวจอีกครั้งหลังได้ SQL จริง (LLM อาจใส่ตาราง CRM ลงไป)
-                    target_db = self._detect_target_db(q, sql)
-                    logger.info("Dynamic SQL target_db (post-generate): %s", target_db)
-
-                    if sql != "NO_SQL":
-                        # Auto-fix common LLM mistakes before validation
-                        sql = self._fix_common_sql_mistakes(sql)
-                        logger.info("SQL after auto-fix: %.300s", sql)
-
-                        # ✅ Layer 2: Query Validator (Strict Business Rules)
-                        is_valid, error_msg = self.validator.validate(sql, q)
-                        if not is_valid:
-                            logger.warning(
-                                f"SQL Validation Failed: {error_msg} — attempting self-correct"
-                            )
-                            # Self-correct: send error back to model once
-                            correction_hint = f"\n\n# CRITICAL ERROR — FIX REQUIRED\nSQL ที่สร้างมามีข้อผิดพลาด: {error_msg}\nกรุณาสร้าง SQL ใหม่ที่ถูกต้องตามกฎเท่านั้น ห้ามทำผิดซ้ำ"
-                            corrected = await self._generate_dynamic_sql(
-                                q + correction_hint, semantic, history
-                            )
-                            corrected = self._fix_common_sql_mistakes(corrected)
-                            is_valid2, error_msg2 = self.validator.validate(
-                                corrected, q
-                            )
-                            if is_valid2 and corrected != "NO_SQL":
-                                logger.info("Self-correct succeeded: %.300s", corrected)
-                                sql = corrected
-                                yield self._event("sql", sql=sql)
-                            else:
-                                logger.warning(
-                                    f"Self-correct also failed: {error_msg2}"
-                                )
-                                sql = "NO_SQL"
-                                context_str = f"ไม่สามารถค้นหาข้อมูลได้เนื่องจากเงื่อนไขไม่ครบถ้วน ({error_msg})"
+                    if intent != "ADVISORY":
+                        # ⚡ Fast Path: keyword match ก่อน (ไม่รอ LLM)
+                        fast = self._fast_route(q)
+                        if fast:
+                            decision = fast
                         else:
-                            logger.info("SQL (dynamic): %.300s", sql)
+                            # Fallback: LLM routing
+                            yield self._event("status", content="กำลังวิเคราะห์คำถามสักครู่นะครับ...")
+                            decision = await self._route_request(q)
+
+                        template_name = decision.get("template_name", "UNKNOWN")
+                        params = decision.get("params", {})
+                        logger.info("Route → template: %s", template_name)
+
+                        target_db = "lspdata"
+                        if template_name != "UNKNOWN" and template_name in SQL_TEMPLATES:
+                            sql, _ = render_query(template_name, params)
+                            target_db = get_template_db(template_name)
+                            logger.info("SQL (template on %s): %.1000s", target_db, sql)
                             yield self._event("sql", sql=sql)
+                        else:
+                            yield self._event(
+                                "status", content="ขอเวลาผมตีความหมายข้อมูลสักครู่นะครับ..."
+                            )
+                            semantic = await self.semantic_layer.extract_intent(q)
+                            logger.info(f"Semantic Intent: {semantic}")
+
+                            target_db = self._detect_target_db(q)
+                            yield self._event("status", content="กำลังเตรียมข้อมูลมาให้ดูนะครับ...")
+                            sql = await self._generate_dynamic_sql(q, semantic, history)
+                            
+                            target_db = self._detect_target_db(q, sql)
+                            if sql != "NO_SQL":
+                                sql = self._fix_common_sql_mistakes(sql)
+                                is_valid, error_msg = self.validator.validate(sql, q)
+                                if not is_valid:
+                                    sql = "NO_SQL"
+                                    context_str = f"ไม่สามารถค้นหาข้อมูลได้เนื่องจากเงื่อนไขไม่ครบถ้วน ({error_msg})"
+                                else:
+                                    yield self._event("sql", sql=sql)
+                            else:
+                                context_str = "ไม่พบข้อมูลที่ผู้ใช้ร้องขอ"
                     else:
-                        context_str = "ไม่พบข้อมูลที่ผู้ใช้ร้องขอ"
+                        # For Advisory, we already set sql = "NO_SQL" and have context_str
+                        pass
 
                 if sql != "NO_SQL":
                     try:
@@ -554,7 +580,7 @@ Output JSON: {{"category": "...", "template_name": "...", "params": {{}}}}
                             logger.info("DB rows: %d (display_count: %d)", len(db_results), display_count)
                             yield self._event("data_count", count=display_count)
                             context_str = engine.format_db_results(
-                                db_results, self.schema, question=q
+                                db_results, self.schema, question=q, intent=intent
                             )
                             stats_str = engine.get_summary_stats(db_results)
                         else:
@@ -574,22 +600,33 @@ Output JSON: {{"category": "...", "template_name": "...", "params": {{}}}}
                 "status", content="เรียบร้อยครับ เดี๋ยวผมสรุปให้อ่านง่ายๆ นะครับ..."
             )
 
-            from prompts.sql_system import (
+            from prompts.insight import (
                 INSIGHT_SYSTEM,
                 INSIGHT_PROMPT_TEMPLATE,
                 GENERAL_SYSTEM,
                 GENERAL_PROMPT_TEMPLATE,
+                CRM_LOG_SYSTEM,
+                CRM_LOG_PROMPT_TEMPLATE,
             )
 
             hist_str = "\n".join([f"{m['role']}: {m['content']}" for m in history[-5:]])
 
+            is_crm_log = "FDATE" in context_str or "ประวัติการติดตาม" in q or "ประวัติติดตาม" in q
+
             if intent == "GENERAL":
-                # คำถามทั่วไป (เช่น "คุณคือใคร") → ใช้ GENERAL prompt ไม่ใช่ INSIGHT
                 final_prompt = GENERAL_PROMPT_TEMPLATE.format(
                     question=q,
                     history=hist_str,
                 )
                 system_prompt = GENERAL_SYSTEM
+                insight_tokens = 800
+            elif is_crm_log:
+                # CRM Log → ใช้ prompt ที่สั่งให้แสดง timeline ไม่ใช่สรุป
+                final_prompt = CRM_LOG_PROMPT_TEMPLATE.format(
+                    context=context_str,
+                )
+                system_prompt = CRM_LOG_SYSTEM
+                insight_tokens = 1500
             else:
                 # DATA_QUERY → ใช้ INSIGHT prompt พร้อมข้อมูลจาก DB
                 final_prompt = INSIGHT_PROMPT_TEMPLATE.format(
@@ -599,10 +636,7 @@ Output JSON: {{"category": "...", "template_name": "...", "params": {{}}}}
                     history=hist_str,
                 )
                 system_prompt = INSIGHT_SYSTEM
-
-            # กำหนด tokens ตามประเภทข้อมูล — CRM Log ใช้น้อยลงเพื่อป้องกัน timeout
-            is_crm_context = "FDATE" in context_str or "ประวัติการติดตาม" in q or "ประวัติติดตาม" in q
-            insight_tokens = 600 if is_crm_context else 1200
+                insight_tokens = 1200
 
             response_text = ""
             try:
