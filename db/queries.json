@@ -490,6 +490,157 @@
                 "debug crm status values",
                 "ขอดูค่า StatusS ทั้งหมด"
             ]
+        },
+        "BRANCH_DELINQUENCY_SUMMARY": {
+            "sql": "SELECT OLID, Stat2, COUNT(*) AS TotalContracts, SUM(CAST(Bal AS MONEY)) AS TotalBal FROM LSM010 WHERE Stat2 IN ('B','C','D','F','G','H') GROUP BY OLID, Stat2 ORDER BY OLID, Stat2",
+            "description": "สรุปจำนวนและยอดหนี้ค้างแยกตามสาขา+สถานะ aging",
+            "category": "branch",
+            "subcategory": "delinquency",
+            "params": [],
+            "example_questions": [
+                "สรุปลูกหนี้ค้างแต่ละสาขาแยกตามสถานะ",
+                "แต่ละสาขามีหนี้ค้างกี่รายแยกตาม aging",
+                "เปรียบเทียบสถานะหนี้ระหว่างสาขา",
+                "สาขาไหนมีหนี้เสียเยอะสุด",
+                "ภาพรวมหนี้ค้างทุกสาขาแยกตาม Stat2"
+            ]
+        },
+        "BRANCH_BALANCE_SUMMARY": {
+            "sql": "SELECT OLID, COUNT(*) AS TotalContracts, SUM(CAST(Bal AS MONEY)) AS TotalBal, SUM(CAST(Interest AS MONEY)) AS TotalInterest, SUM(CAST(Credit AS MONEY)) AS TotalCredit FROM LSM010 WHERE AccStat = ' ' GROUP BY OLID ORDER BY TotalBal DESC",
+            "description": "สรุปยอดหนี้คงเหลือ ดอกเบี้ย ค่างวดค้างแยกตามสาขา (สัญญา active)",
+            "category": "branch",
+            "subcategory": "balance",
+            "params": [],
+            "example_questions": [
+                "ยอดหนี้รวมแต่ละสาขาเป็นเท่าไหร่",
+                "สรุปยอด Bal Credit Interest ทุกสาขา",
+                "สาขาไหนมียอดหนี้คงเหลือสูงสุด",
+                "เปรียบเทียบยอดหนี้ระหว่างสาขาทั้งหมด",
+                "ยอดหนี้รวมแยกสาขา"
+            ]
+        },
+        "CLOSED_CASH_LIST": {
+            "sql": "SELECT OLID, AccNo, CusId, Bal FROM LSM010 WHERE AccStat = '2' :branch_filter ORDER BY AccNo",
+            "description": "สัญญาที่ปิดสด (AccStat=2) — รองรับ branch_code",
+            "category": "branch",
+            "subcategory": "completion",
+            "params": [
+                "branch_code"
+            ],
+            "example_questions": [
+                "สัญญาที่ปิดสดแล้วมีกี่ราย",
+                "ปิดสดแล้วในสาขา MN",
+                "AccStat 2 มีกี่รายการ",
+                "รายชื่อสัญญาปิดสด",
+                "ลูกค้าที่จ่ายปิดสดแล้ว"
+            ]
+        },
+        "CANCELLED_LIST": {
+            "sql": "SELECT OLID, AccNo, CusId, CancelDate FROM LSM010 WHERE AccStat = '5' :branch_filter ORDER BY CancelDate DESC",
+            "description": "สัญญาที่ยกเลิกแล้ว (AccStat=5) — รองรับ branch_code",
+            "category": "branch",
+            "subcategory": "cancellation",
+            "params": [
+                "branch_code"
+            ],
+            "example_questions": [
+                "สัญญาที่ยกเลิกแล้วมีกี่ราย",
+                "ยกเลิกสัญญาไปกี่ฉบับ",
+                "AccStat 5 มีอะไรบ้าง",
+                "รายการที่ถูกยกเลิก",
+                "สัญญายกเลิกสาขา MN"
+            ]
+        },
+        "CUSTOMER_CONTRACTS": {
+            "sql": "SELECT LSM010.OLID, LSM010.AccNo, LSM010.Stat2, LSM010.AccStat, LSM010.Bal, LSM010.Interest, LSM010.Credit, LSM007.FolName FROM LSM010 INNER JOIN LSM007 ON LSM010.FolID = LSM007.FolID WHERE LSM010.CusId = :cus_id",
+            "description": "ดูสัญญาทั้งหมดของลูกค้าตามรหัสลูกค้า — ต้องการ cus_id",
+            "category": "contract",
+            "subcategory": "customer",
+            "params": [
+                "cus_id"
+            ],
+            "example_questions": [
+                "ลูกค้ารหัส C001234 มีสัญญาอะไรบ้าง",
+                "CusId C009999 มีกี่สัญญา",
+                "ดูสัญญาทั้งหมดของรหัสลูกค้า C001",
+                "ลูกค้าคนนี้มีหนี้เท่าไหร่ CusId C002"
+            ]
+        },
+        "CONTRACT_BY_ENGINE": {
+            "sql": "SELECT OLID, AccNo, EngNo, Stat2, AccStat, Bal FROM LSM010 WHERE EngNo = :eng_no",
+            "description": "ค้นหาสัญญาตามหมายเลขเครื่องยนต์ — ต้องการ eng_no",
+            "category": "contract",
+            "subcategory": "vehicle",
+            "params": [
+                "eng_no"
+            ],
+            "example_questions": [
+                "ค้นหาสัญญาจากหมายเลขเครื่องยนต์",
+                "เลขเครื่อง ABC123 อยู่สัญญาไหน",
+                "EngNo XYZ999 คือสัญญาอะไร",
+                "หาสัญญาจาก engine number"
+            ]
+        },
+        "TOP_OVERDUE_TOTAL": {
+            "sql": "SELECT TOP 20 LSM010.OLID, LSM010.AccNo, LSM010.Stat2, LSM007.FolName, CAST(LSM010.Credit AS MONEY) AS Credit, CAST(LSM010.Interest AS MONEY) AS Interest, CAST(LSM010.Fee AS MONEY) AS Fee, CAST(LSM010.Credit + LSM010.Interest + LSM010.Fee AS MONEY) AS TotalOverdue FROM LSM010 INNER JOIN LSM007 ON LSM010.FolID = LSM007.FolID WHERE LSM010.FolID != '' AND (CAST(LSM010.Credit AS MONEY) > 0 OR CAST(LSM010.Interest AS MONEY) > 0) ORDER BY TotalOverdue DESC",
+            "description": "Top 20 สัญญาที่มียอดค้างรวม (Credit+Interest+Fee) สูงสุด",
+            "category": "payment",
+            "subcategory": "overdue",
+            "params": [],
+            "example_questions": [
+                "20 อันดับสัญญาที่ค้างชำระรวมมากที่สุด",
+                "Top 20 ยอดค้างรวมทั้งหมด",
+                "ใครมียอดค้างรวม Credit+Interest เยอะที่สุด",
+                "อันดับสัญญาค้างหนักสุด",
+                "ยอดค้างรวมสูงสุด 20 ราย"
+            ]
+        },
+        "UPCOMING_MATURITY_BY_BRANCH": {
+            "sql": "SELECT TOP 50 LSM010.OLID, LSM010.AccNo, LSM010.EndAcc, LSM010.NLot, LSM010.NowLot, LSM010.Bal, LSM007.FolName FROM LSM010 INNER JOIN LSM007 ON LSM007.FolID = LSM010.FolID WHERE LSM010.AccStat = ' ' AND LSM010.Stat2 = 'A' AND LSM010.FolID != '' AND LSM010.OLID = :branch_code ORDER BY LSM010.EndAcc",
+            "description": "สัญญาที่ใกล้ครบกำหนดของสาขาที่ระบุ — ต้องการ branch_code",
+            "category": "contract",
+            "subcategory": "maturity",
+            "params": [
+                "branch_code"
+            ],
+            "example_questions": [
+                "สาขา MN มีสัญญาไหนใกล้หมดอายุบ้าง",
+                "สัญญาใกล้ครบกำหนดของสาขา GG",
+                "EndAcc ใกล้มาที่สุดของสาขา AA",
+                "สาขา MN สัญญาจะหมดเร็วๆ นี้มีไหม"
+            ]
+        },
+        "NCB_STATUS_LIST": {
+            "sql": "SELECT OLID, AccNo, CusId, AccStatLegal, Stat2, Bal FROM LSM010 WHERE AccStatLegal IS NOT NULL AND AccStatLegal != '' :branch_filter ORDER BY AccStatLegal, Bal DESC",
+            "description": "สัญญาที่มีสถานะ NCB (AccStatLegal) — รองรับ branch_code",
+            "category": "legal",
+            "subcategory": "ncb",
+            "params": [
+                "branch_code"
+            ],
+            "example_questions": [
+                "สัญญาที่มีสถานะ NCB มีกี่ราย",
+                "ดูรายการที่มี AccStatLegal",
+                "สถานะ NCB ในระบบมีอะไรบ้าง",
+                "Credit Bureau มีสัญญาไหนบ้าง",
+                "NCB status ของสาขา MN"
+            ]
+        },
+        "ZERO_OVERDUE_LOT": {
+            "sql": "SELECT TOP 50 LSM010.OLID, LSM010.AccNo, LSM010.RLot, LSM010.NowLot, LSM010.NLot, LSM010.Bal, LSM007.FolName FROM LSM010 INNER JOIN LSM007 ON LSM010.FolID = LSM007.FolID WHERE LSM010.AccStat = ' ' AND LSM010.RLot = 0 AND LSM010.FolID != '' :branch_filter ORDER BY LSM010.Bal DESC",
+            "description": "สัญญาที่ไม่ค้างงวดเลย (RLot=0) — รองรับ branch_code",
+            "category": "payment",
+            "subcategory": "current",
+            "params": [
+                "branch_code"
+            ],
+            "example_questions": [
+                "สัญญาที่จ่ายทันทุกงวด ไม่ค้างเลย",
+                "ลูกหนี้ที่ไม่มีค้างงวดมีกี่ราย",
+                "RLot = 0 มีกี่สัญญา",
+                "ใครจ่ายตรงเวลาทุกงวด",
+                "สัญญาที่ไม่ค้างชำระเลยในสาขา MN"
+            ]
         }
     }
 }

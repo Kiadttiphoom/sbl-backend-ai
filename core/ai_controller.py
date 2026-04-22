@@ -386,6 +386,18 @@ class AIController:
             if m:
                 params["fol_id"] = m.group(1)
 
+        # cus_id: รหัสลูกค้า เช่น C001234
+        if ":cus_id" in needed:
+            m = re.search(r"\b([Cc]\d{3,10})\b", q)
+            if m:
+                params["cus_id"] = m.group(1).upper()
+
+        # eng_no: หมายเลขเครื่องยนต์ (alphanumeric 5-20 ตัว)
+        if ":eng_no" in needed:
+            m = re.search(r"\b([A-Z0-9]{5,20})\b", q, re.IGNORECASE)
+            if m:
+                params["eng_no"] = m.group(1).upper()
+
         # stat2_code: B/C/D
         if ":stat2_filter" in needed:
             for code, keyword in [("B", "เตือน 1"), ("C", "เตือน 2"), ("D", "เตือน 3")]:
@@ -496,7 +508,7 @@ Output JSON: {{"category": "...", "template_name": "...", "params": {{}}}}
             if intent in ("DATA_QUERY", "ADVISORY"):
                 # Force Advisory if keywords match, even if intent was DATA_QUERY
                 # Force Advisory if keywords match
-                advisory_keywords = r"(ทำยังไง|ทํายังไง|ทำไม|ทําไม|อย่างไร|แนะนำ|ควรจะ|แนวทาง|วิธี|แก้ปัญหา|ตามได้ไง|วิเคราะห์|ยังไงดี|ให้ติดตามได้|ให้ติดตามหนี้ได้|ให้จ่ายได้|ให้ชำระได้|ทำให้จ่าย|ทำให้ชำระ|จะทำให้|จะช่วยได้|จะแก้ได้|ควรทำอะไร)"
+                advisory_keywords = r"(ทำยังไง|ทํายังไง|ทำไม|ทําไม|อย่างไร|แนะนำ|ควรจะ|แนวทาง|วิธี|แก้ปัญหา|ตามได้ไง|วิเคราะห์|ยังไงดี|ให้ติดตามได้|ให้ติดตามหนี้ได้|ให้จ่ายได้|ให้ชำระได้|ทำให้จ่าย|ทำให้ชำระ|จะทำให้|จะช่วยได้|จะแก้ได้|ควรทำอะไร|ควรให้|ควรส่ง|ควรดำเนิน|ควรติดตาม|ควรจัดการ|ควรโอน|มีโอกาสที่จะ|โอกาสที่จะ|เหมาะสมไหม|เป็นไปได้ไหม)"
                 if re.search(advisory_keywords, q.lower()) and history:
                     intent = "ADVISORY"
 
@@ -609,9 +621,29 @@ Output JSON: {{"category": "...", "template_name": "...", "params": {{}}}}
                 CRM_LOG_PROMPT_TEMPLATE,
             )
 
+            # แยกข้อมูล: full_context (โชว์ UI) vs ai_context (ให้ AI วิเคราะห์สั้นๆ)
+            full_context = context_str
+            ai_context = context_str
+            
+            # บีบอัดข้อมูลสำหรับ AI (ส่งแค่ 7 แถวล่าสุด และข้อมูลสำคัญเท่านั้น)
+            if "FDATE" in context_str or "|" in context_str:
+                lines = context_str.split("\n")
+                # เก็บ Header ไว้ และเอาแค่ 7 บรรทัดล่าสุดที่มีข้อมูล
+                header_lines = [l for l in lines[:3] if "|" in l or "---" in l]
+                data_lines = [l for l in lines[3:] if "|" in l]
+                if len(data_lines) > 7:
+                    ai_context = "\n".join(header_lines + data_lines[:7] + ["... (ข้อมูลก่อนหน้านี้ถูกตัดออกเพื่อการประมวลผลที่รวดเร็ว)"])
+
+            stats_str = stats_str if stats_str else ""
             hist_str = "\n".join([f"{m['role']}: {m['content']}" for m in history[-5:]])
 
-            is_crm_log = "FDATE" in context_str or "ประวัติการติดตาม" in q or "ประวัติติดตาม" in q
+            # is_crm_log ต้องดูจาก context_str (ข้อมูลจาก DB) เท่านั้น
+            # ห้ามดูจาก q เพราะถ้าเป็น ADVISORY คำว่า "ประวัติการติดตาม" จะยังอยู่ใน q
+            # แต่ต้องการ INSIGHT prompt (วิเคราะห์) ไม่ใช่ CRM_LOG prompt (แค่แสดง timeline)
+            is_crm_log = (
+                intent != "ADVISORY"
+                and ("FDATE" in context_str or "Section" in context_str)
+            )
 
             if intent == "GENERAL":
                 final_prompt = GENERAL_PROMPT_TEMPLATE.format(
@@ -620,8 +652,18 @@ Output JSON: {{"category": "...", "template_name": "...", "params": {{}}}}
                 )
                 system_prompt = GENERAL_SYSTEM
                 insight_tokens = 800
+            elif intent == "ADVISORY":
+                # ADVISORY → ใช้ INSIGHT prompt พร้อม context จาก history + คำถามผู้ใช้
+                final_prompt = INSIGHT_PROMPT_TEMPLATE.format(
+                    question=q,
+                    context=ai_context,
+                    stats=stats_str if stats_str else "N/A",
+                    history=hist_str,
+                )
+                system_prompt = INSIGHT_SYSTEM
+                insight_tokens = 1200
             elif is_crm_log:
-                # CRM Log → ใช้ prompt ที่สั่งให้แสดง timeline ไม่ใช่สรุป
+                # CRM Log (ดึงข้อมูลใหม่) → แสดง timeline ไม่สรุป
                 final_prompt = CRM_LOG_PROMPT_TEMPLATE.format(
                     context=context_str,
                 )
@@ -631,7 +673,7 @@ Output JSON: {{"category": "...", "template_name": "...", "params": {{}}}}
                 # DATA_QUERY → ใช้ INSIGHT prompt พร้อมข้อมูลจาก DB
                 final_prompt = INSIGHT_PROMPT_TEMPLATE.format(
                     question=q,
-                    context=context_str,
+                    context=ai_context,
                     stats=stats_str if stats_str else "N/A",
                     history=hist_str,
                 )

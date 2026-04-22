@@ -25,11 +25,10 @@ from typing import Optional, List, Dict
 
 import httpx
 
-from config import FEW_SHOT_PATH
+from typing import Optional, List, Dict
 
 logger = logging.getLogger(__name__)
 
-EXAMPLES_PATH = FEW_SHOT_PATH
 CACHE_PATH = "vector_cache.pkl"
 
 # ── IMPORTANT: Only use vector search if a DEDICATED fast embedding model is set
@@ -103,18 +102,11 @@ class FewShotStore:
         self._has_vectors = False
 
     def initialize(self):
-        """Load examples from JSON. Compute embeddings only if EMBED_MODEL is set."""
-        if not os.path.exists(EXAMPLES_PATH):
-            logger.error("Few-shot examples file not found: %s", EXAMPLES_PATH)
-            return
-
-        with open(EXAMPLES_PATH, "r", encoding="utf-8") as f:
-            raw = f.read()
-        data = json.loads(raw)
-        file_hash = hashlib.md5(raw.encode()).hexdigest()
-
-        self.sql_items = data.get("sql_examples", [])
-        self.insight_items = data.get("insight_examples", [])
+        """Initialize the store."""
+        self.sql_items = []
+        self.insight_items = []
+        self._has_vectors = False
+        logger.info("Few-shot store initialized (empty mode)")
 
         # ── Vector mode: only if dedicated EMBED_MODEL is configured ──────
         if _DEDICATED_EMBED_MODEL:
@@ -123,15 +115,14 @@ class FewShotStore:
                 try:
                     with open(CACHE_PATH, "rb") as f:
                         cache = pickle.load(f)
-                    if cache.get("hash") == file_hash:
-                        self.sql_items = cache["sql"]
-                        self.insight_items = cache["insight"]
-                        self._has_vectors = cache.get("has_vectors", False)
-                        logger.info(
-                            "Loaded %d SQL + %d insight from cache (vector mode)",
-                            len(self.sql_items), len(self.insight_items),
-                        )
-                        return
+                    self.sql_items = cache["sql"]
+                    self.insight_items = cache["insight"]
+                    self._has_vectors = cache.get("has_vectors", False)
+                    logger.info(
+                        "Loaded %d SQL + %d insight from cache (vector mode)",
+                        len(self.sql_items), len(self.insight_items),
+                    )
+                    return
                 except Exception as e:
                     logger.warning("Cache load failed: %s", e)
 
@@ -160,7 +151,6 @@ class FewShotStore:
                 try:
                     with open(CACHE_PATH, "wb") as f:
                         pickle.dump({
-                            "hash": file_hash,
                             "sql": self.sql_items,
                             "insight": self.insight_items,
                             "has_vectors": True,
@@ -178,13 +168,7 @@ class FewShotStore:
             )
 
     def reload(self):
-        """Force-reload examples."""
-        if os.path.exists(CACHE_PATH):
-            try:
-                os.remove(CACHE_PATH)
-            except Exception:
-                pass
-        self._has_vectors = False
+        """Force-reload examples (currently just re-initializes empty store)."""
         self.initialize()
 
     # ── Search ────────────────────────────────────────────────────────────

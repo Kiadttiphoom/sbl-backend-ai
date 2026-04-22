@@ -84,7 +84,6 @@ DATABASES: Dict[str, str] = {
 
 # Paths
 BASE_DIR: str = os.path.dirname(os.path.abspath(__file__))
-FEW_SHOT_PATH: str = os.path.join(BASE_DIR, "data", "few_shot_examples.json")
 SCHEMA_PATH: str   = os.path.join(BASE_DIR, "data", "database_schema.json")
 
 # ── Security ──────────────────────────────────────────────────────────────────

@@ -27,19 +27,26 @@ _SCHEMA_KEYWORDS: Set[str] = _load_schema_keywords()
 
 # ── Followup patterns (คำถามสั้นๆ ที่แสดงว่าต่อเนื่องจาก context เดิม) ─────────
 _FOLLOWUP_PATTERNS: List[str] = [
-    r"^(แล้ว|แล้วก็|แล้วถ้า|แล้วของ)",       # "แล้วพนักงานคนนี้ล่ะ"
+    r"^(แล้ว|แล้วก็|แล้วถ้า|แล้วของ)",
     r"(ของเขา|ของคนนี้|ของคนนั้|ของพนักงานนี้)",
     r"(ของสัญญานี้|สัญญานี้|ของสัญญาดังกล่าว|สัญญาดังกล่าว|รายนี้|ลูกค้านี้|ลูกหนี้รายนี้)",
     r"^(คนนี้|คนนั้น|เขา|เธอ|มัน|ตัวนี้|รายนี้)",
-    r"^(แล้ว.{0,10}ล่ะ|.{0,15}ล่ะ$)",        # "แล้วยอดรวมล่ะ"
-    r"^(กี่|เท่าไหร่|เท่าใด|มีกี่|รวม|ทั้งหมด).{0,20}$",  # คำถามสั้น เชิงตัวเลข
+    r"^(แล้ว.{0,10}ล่ะ|.{0,15}ล่ะ$)",
+    r"^(กี่|เท่าไหร่|เท่าใด|มีกี่|รวม|ทั้งหมด).{0,20}$",
     r"^(เพิ่มเติม|อีกคน|คนอื่น|รายอื่น)",
     r"^(ดู|แสดง|หา|เช็ค|ตรวจ).{0,15}(ด้วย|อีก|เพิ่ม)$",
+    # ถามวิเคราะห์ต่อจากข้อมูลที่แสดงไปแล้ว
+    r"^(จากประวัติ|จากข้อมูล|จากที่เห็น|จากข้างต้น|จากผลที่|ดูจาก|จากตาราง)",
+    r"(ควรส่งต่อ|ควรให้ทีม|ควรดำเนินการ|ควรติดตาม|ควรจัดการ|น่าจะทำ|ควรทำต่อ)",
+    r"(มีโอกาส.{0,20}ไหม|น่าจะ.{0,20}ไหม|โอกาสที่จะ)",
 ]
 
+# Advisory patterns — ตรวจ 2 รอบ: (1) ถ้ามี history และ (2) standalone
 _ADVISORY_PATTERNS: List[str] = [
     r"(ทำยังไง|ทํายังไง|ทำไม|ทําไม|อย่างไร|แนะนำ|ควรจะ|แนวทาง|วิธี|แก้ปัญหา|ตามได้ไง|วิเคราะห์|ยังไงดี)",
     r"(ให้ติดตามได้|ให้ติดตามหนี้ได้|ให้จ่ายได้|ให้ชำระได้|ทำให้จ่าย|ทำให้ชำระ|จะทำให้|จะช่วยได้|จะแก้ได้|ควรทำอะไร)",
+    r"(ควรให้|ควรส่ง|ควรดำเนิน|ควรติดตาม|ควรจัดการ|ควรโอน|ควรเปลี่ยน)",
+    r"(มีโอกาสที่จะ|โอกาสที่จะ|น่าจะ.{0,10}ไหม|เหมาะสมไหม|เป็นไปได้ไหม)",
 ]
 
 def _is_followup(q: str, history: List[Dict[str, str]]) -> bool:
@@ -99,14 +106,16 @@ def detect_intent(q: str, history: Optional[List[Dict[str, str]]] = None) -> Dic
     ql      = q.lower()
     matched: List[str] = []
 
-    # 1. Advisory Detection (Only if there is history context)
+    # 1. Advisory Detection — ตรวจก่อน STRONG_DATA_KEYWORDS เสมอถ้ามี history
+    has_history = bool(history)
     is_fup = _is_followup(q, history or [])
-    if is_fup:
+
+    if has_history:
         for pattern in _ADVISORY_PATTERNS:
             if re.search(pattern, ql):
                 return {"intent": "ADVISORY", "confidence": "high", "matched": ["advisory_pattern"]}
 
-    # 2. Strong keywords → confidence high
+    # 2. Strong keywords → DATA_QUERY (ต้องไม่ใช่ advisory ก่อน)
     for k in STRONG_DATA_KEYWORDS:
         if k.lower() in ql:
             matched.append(k)
@@ -114,8 +123,8 @@ def detect_intent(q: str, history: Optional[List[Dict[str, str]]] = None) -> Dic
     if matched:
         return {"intent": "DATA_QUERY", "confidence": "high", "matched": matched}
 
-    # 2. Followup context (NEW) — ถ้า history บ่งชี้ว่าต่อเนื่องจาก data session
-    if _is_followup(q, history or []):
+    # 3. Followup context — ถ้า history บ่งชี้ว่าต่อเนื่องจาก data session
+    if is_fup:
         return {"intent": "DATA_QUERY", "confidence": "medium", "matched": ["followup_context"]}
 
     # 3. Semantic Fallback (Handle Typos/Synonyms)

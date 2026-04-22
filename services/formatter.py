@@ -111,12 +111,9 @@ class AnalysisEngine:
             except Exception:
                 pass
 
-        # DATA CLEANUP: ลบเบอร์โทรศัพท์ออกจากรายละเอียด (FDetail) เพื่อประหยัด Token และอ่านง่าย
+        # DATA CLEANUP: ปรับปรุงข้อความให้อ่านง่ายขึ้น แต่คงเบอร์โทรไว้ตามต้องการ
         if key.upper() == "FDETAIL":
-            import re
-            # ลบเบอร์โทร 9-10 หลัก (08xxxxxxxx, 06xxxxxxxx, 02-xxx-xxxx)
-            val_str = re.sub(r"0[1-9][0-9]-?[0-9]{3,4}-?[0-9]{4}", "[TEL]", val_str)
-            # ลบข้อความที่มักยาวเกินไปและซ้ำซ้อน
+            # ลดข้อความที่มักยาวเกินไปและซ้ำซ้อน
             val_str = val_str.replace("ผู้ซื้อ ไม่รับสาย", "ไม่รับสาย").replace("ไม่เปิดบริการ", "ปิดเครื่อง")
 
         for table in ("LSM010", "LSM007"):
@@ -212,7 +209,7 @@ class AnalysisEngine:
             ctx = "\n".join(lines)
 
         if len(results) > limit:
-            ctx += f"\n\n*... (และข้อมูลส่วนที่เหลืออีก {len(results) - limit} รายการ ถูกตัดออกเพื่อความเร็ว)*"
+            ctx += f"\n\n*... ยังมีข้อมูลการติดตามอื่นอีก {len(results) - limit} รายการ คุณสามารถสอบถามรายละเอียดเพิ่มเติมได้ครับ*"
         
         return ctx
 

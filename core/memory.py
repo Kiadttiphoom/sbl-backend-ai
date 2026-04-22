@@ -91,8 +91,8 @@ def get_insight_training_context(query: str = "") -> str:
 
 
 def reload():
-    """Hot-reload examples (call after updating few_shot_examples.json)."""
+    """Hot-reload examples (re-initializes the store)."""
     global _initialized
     _initialized = False
-    store.reload()
+    store.initialize()
     logger.info("Training memory reloaded successfully")
