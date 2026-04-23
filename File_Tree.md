@@ -1,70 +1,71 @@
 # File Tree: sbl-backend-ai
 
-**Generated:** 4/22/2026, 8:58:57 AM
+**Generated:** 4/23/2026, 12:52:53 PM
 **Root Path:** `d:\Pond\AI\sbl-backend-ai`
 
 ```
-├── core
-│   ├── ai_controller.py
-│   ├── exceptions.py
-│   ├── intent.py
-│   ├── memory.py
-│   ├── pipeline.py
-│   ├── prompts.py
-│   ├── semantic_layer.py
-│   └── vector_store.py
-├── data
+├── core                        # แกนกลางการทำงานของระบบ AI
+│   ├── ai_controller.py        # ตัวควบคุมหลัก จัดการ Pipeline และ Logic ทั้งหมด
+│   ├── exceptions.py           # ตัวจัดการข้อผิดพลาดภายในระบบ
+│   ├── intent.py               # ระบบตรวจจับความต้องการ (Intent) ของผู้ใช้
+│   ├── memory.py               # ระบบจัดการความจำและประวัติการสนทนา
+│   ├── pipeline.py             # ระบบจัดการลำดับขั้นตอนการทำงาน (Workflow)
+│   ├── prompts.py              # ตัวช่วยสร้างข้อความคำสั่ง (Prompt) สำหรับ LLM
+│   ├── semantic_layer.py       # ระบบจัดการความหมายข้อมูล แปลงเป็น Key/Filters
+│   └── vector_store.py         # ระบบจัดเก็บและค้นหาข้อมูลแบบ Vector
+├── data                        # แหล่งเก็บข้อมูลโครงสร้างและ Schema
 │   ├── database_schema.backup.json
-│   ├── database_schema.json
-│   └── learned_pending.json
-├── db
-│   ├── connector.py
-│   ├── fetch.py
-│   ├── queries.json
-│   └── templates.py
-├── diagnostics
-│   └── verify_skills.py
-├── llm
-│   └── ollama_client.py
-├── prompts
-│   ├── insight.py
-│   └── sql_system.py
-├── routes
-│   ├── ask.py
-│   ├── feedback.py
-│   └── health.py
-├── schema
-│   ├── builder.py
-│   └── loader.py
-├── security
-│   ├── business_rules.py
-│   ├── injection.py
-│   ├── query_validator.py
-│   └── sql_guard.py
-├── services
-│   └── formatter.py
-├── skills
-│   ├── analyze-report
+│   ├── database_schema.json    # ไฟล์นิยามโครงสร้างฐานข้อมูลและกฎทางธุรกิจ
+│   └── learned_pending.json    # ข้อมูลสิ่งที่ระบบเรียนรู้เพิ่มเติม
+├── db                          # ระบบจัดการฐานข้อมูล SQL
+│   ├── connector.py            # ตัวเชื่อมต่อฐานข้อมูล SQL Server
+│   ├── fetch.py                # ตัวรันคิวรี่และดึงข้อมูลจาก DB
+│   ├── queries.json            # ไฟล์เก็บคิวรี่มาตรฐาน
+│   └── templates.py            # ระบบจัดการ SQL Template แบบไดนามิก
+├── diagnostics                 # เครื่องมือตรวจสอบและทดสอบระบบ
+│   └── verify_skills.py        # ตรวจสอบความถูกต้องของ Skill ในระบบ
+├── llm                         # ส่วนติดต่อกับโมเดลภาษาขนาดใหญ่
+│   └── ollama_client.py        # ตัวจัดการการเชื่อมต่อกับ Ollama API
+├── prompts                     # ไฟล์เก็บข้อความคำสั่งแยกหมวดหมู่
+│   ├── insight.py              # คำสั่งสำหรับการสรุปผลและวิเคราะห์ข้อมูล
+│   └── sql_system.py           # คำสั่งสำหรับการแปลงภาษาธรรมชาติเป็น SQL
+├── routes                      # ส่วนกำหนด API Endpoints (FastAPI)
+│   ├── ask.py                  # Endpoint หลักสำหรับถาม-ตอบ
+│   ├── feedback.py             # Endpoint สำหรับรับ Feedback จากผู้ใช้
+│   └── health.py               # Endpoint สำหรับตรวจสอบความพร้อมของระบบ
+├── schema                      # ระบบจัดการ Schema และ Data Model
+│   ├── builder.py              # เครื่องมือช่วยสร้าง Schema จากฐานข้อมูล
+│   └── loader.py               # ตัวโหลด Schema เข้าสู่ระบบ
+├── security                    # ระบบความปลอดภัยและการตรวจสอบ
+│   ├── business_rules.py       # ตรวจสอบกฎทางธุรกิจและความสมเหตุสมผล
+│   ├── injection.py            # ป้องกัน Prompt Injection
+│   ├── query_validator.py      # ตรวจสอบความถูกต้องและความปลอดภัยของ SQL
+│   └── sql_guard.py            # ตัวกรองคำสั่ง SQL ที่ไม่ปลอดภัย
+├── services                    # บริการเสริมต่างๆ
+│   └── formatter.py            # ตัวจัดการรูปแบบข้อมูล (ตาราง/สรุป) สำหรับแสดงผล
+├── skills                      # ระบบความสามารถพิเศษ (Skills) ของ Agent
+│   ├── analyze-report          # Skill สำหรับการวิเคราะห์รายงาน
 │   │   ├── scripts
 │   │   │   └── script.py
 │   │   └── SKILL.md
-│   ├── search-data
+│   ├── search-data             # Skill สำหรับการค้นหาข้อมูลดิบ
 │   │   ├── scripts
 │   │   │   └── script.py
 │   │   └── SKILL.md
-│   └── registry.py
-├── .env.example
-├── .gitignore
-├── FINE_TUNING_GUIDE.md
-├── README.md
-├── config.py
-├── import_csv_to_sql.py
-├── install_deps.bat
-├── main.py
-├── pyrightconfig.json
-├── requirements.txt
-├── sbl-backend-ai.rar
-└── test_discovery.py
+│   └── registry.py             # ตัวลงทะเบียนและจัดการ Skills ทั้งหมด
+├── .env.example                # ไฟล์ตัวอย่างการตั้งค่า Environment Variables
+├── .gitignore                  # ไฟล์ระบุสิ่งที่ห้ามนำขึ้น Git
+├── FINE_TUNING_GUIDE.md        # คู่มือการปรับแต่ง Model
+├── File_Tree.md                # ไฟล์โครงสร้างโปรเจกต์ (ไฟล์นี้)
+├── README.md                   # รายละเอียดโครงการและการติดตั้ง
+├── config.py                   # ศูนย์รวมการตั้งค่าทั้งหมดของโปรเจกต์
+├── import_csv_to_sql.py        # เครื่องมือนำเข้าข้อมูลจาก CSV เข้า SQL
+├── install_deps.bat            # สคริปต์สำหรับติดตั้ง dependencies บน Windows
+├── main.py                     # จุดเริ่มต้นการทำงานของแอปพลิเคชัน (FastAPI)
+├── pyrightconfig.json          # การตั้งค่า Type checking (Python)
+├── requirements.txt            # รายการไลบรารีที่จำเป็นต้องใช้
+├── sbl-backend-ai.rar          # ไฟล์สำรองข้อมูลโครงการ
+└── test_discovery.py           # สคริปต์ทดสอบการตรวจพบฟีเจอร์ในระบบ
 ```
 
 ---

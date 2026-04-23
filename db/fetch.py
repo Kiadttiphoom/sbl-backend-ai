@@ -26,6 +26,7 @@ def fetch_data(sql: str, db: DBName = "lspdata") -> List[Dict[str, Any]]:
         db:  "lspdata" (LSM010, LSM007) | "crms" (CRMDetail, CRMFol1, CRMFol2)
     """
     try:
+        logger.info("Executing SQL [%s]:\n%s", db, sql)
         with get_connection(db) as conn:
             conn.timeout = 20  # Hard query timeout 20s
             cursor = conn.cursor()

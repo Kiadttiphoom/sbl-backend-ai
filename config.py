@@ -30,8 +30,10 @@ OLLAMA_BASE_URL: Optional[str]   = _get_env("OLLAMA_BASE_URL")
 
 # MODEL_NAME  = ใช้ตอบ user (เล็ก เร็ว)
 # SQL_MODEL   = ใช้สร้าง SQL (ใหญ่ แม่น)
+# ROUTER_MODEL = ใช้แยกประเภทคำถาม (ถ้าอยากมี fast router แยก)
 MODEL_NAME: str  = _get_env("MODEL_NAME")
 SQL_MODEL: str   = _get_env("SQL_MODEL")
+#ROUTER_MODEL : str   = _get_env("ROUTER_MODEL")
 
 LLM_TIMEOUT: int = int(_get_env("LLM_TIMEOUT", "180"))
 
@@ -68,7 +70,7 @@ def _build_dsn_from_env(prefix: str) -> str:
 # │ วิธีเพิ่ม: 1. เพิ่ม alias ในนี้  2. เพิ่มประกาศตัวแปรใน .env ให้ครบตามชุด         │
 # └────────────────────────────────────────────────────────────────────────┘
 DATABASES: Dict[str, str] = {
-    # [ชุดที่ 1] ระบบเช่าซื้อหลัก (Lspdata) -> ใช้ตาราง LSM010, LSM007
+    # [ชุดที่ 1] ระบบเช่าซื้อหลัก (Lspdata) -> ใช้ตาราง LSM011, LSM010, LSM007
     "lspdata":  _build_dsn_from_env("LSPDATA"),
 
     # [ชุดที่ 2] ระบบ CRM (crms) -> ใช้ตาราง CRMDetail, CRMFol1, CRMFol2

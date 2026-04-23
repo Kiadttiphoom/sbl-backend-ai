@@ -189,6 +189,14 @@ class AnalysisEngine:
                 output_parts.append(self._format_section(current_section, section_rows, keys, schema))
             
             ctx = "\n\n".join(output_parts)
+        elif len(sample) == 1 and len(keys) == 1:
+            # ── Single Value Formatting (Avoid Table for scalar counts) ──────────
+            key = keys[0]
+            label = self._get_label(key, schema)
+            val = self._translate_value(key, sample[0][key], schema)
+            if key.upper() in _NUMERIC_KEYS and isinstance(sample[0][key], (int, float)):
+                val = f"{sample[0][key]:,.2f}"
+            ctx = f"{label}: {val}"
         else:
             # ── Standard Table Formatting (Fallback) ───────────────────────────────
             lines = [

@@ -2,10 +2,11 @@
   "_semantic_guide": {
     "purpose": "SBL hire-purchase (เช่าซื้อ) financial system",
     "primary_table": "LSM010",
-    "join_rule": "ต้องการชื่อพนักงาน/ผู้ยึด → JOIN LSM007 ON LSM010.FolID = LSM007.FolID",
+    "join_rule": "ต้องการชื่อพนักงาน/ผู้ยึด → JOIN LSM007 ON LSM010.FolID = LSM007.FolID | ดูรายละเอียดรายงวด → JOIN LSM011 ON LSM010.OLID = LSM011.OLID AND LSM010.AccNo = LSM011.AccNo",
     "database_routing": {
       "lspdata": [
         "LSM010",
+        "LSM011",
         "LSM007"
       ],
       "crms": [
@@ -550,6 +551,135 @@
       "AccNo_alias": {
         "desc": "ชื่อย่อสัญญา (Alias)",
         "type": "nvarchar(20)"
+      }
+    }
+  },
+  "LSM011": {
+    "description": "ตาราง Master การผ่อน (Installment / Payment Schedule)",
+    "business_role": "ใช้สำหรับดูรายละเอียดรายงวด การจ่ายเงิน และยอดค้างรายงวด เชื่อมกับ LSM010 ด้วย OLID และ AccNo",
+    "columns": {
+      "OLID": {
+        "desc": "รหัสสาขา",
+        "business_name": "สาขา",
+        "type": "nvarchar(4)",
+        "is_pk": true,
+        "join_to": "LSM010.OLID"
+      },
+      "AccNo": {
+        "desc": "เลขที่สัญญา",
+        "business_name": "เลขสัญญา",
+        "type": "nvarchar(30)",
+        "is_pk": true,
+        "join_to": "LSM010.AccNo"
+      },
+      "Lot": {
+        "desc": "งวดที่",
+        "business_name": "งวดที่",
+        "type": "nvarchar(6)",
+        "is_pk": true,
+        "keywords": [
+          "งวดที่",
+          "งวด"
+        ]
+      },
+      "LDate": {
+        "desc": "วันที่งวด (YYYYMMDD)",
+        "business_name": "วันที่งวด",
+        "type": "nvarchar(16)",
+        "is_pk": true,
+        "keywords": [
+          "วันที่งวด",
+          "วันครบกำหนดงวด"
+        ]
+      },
+      "LPrice": {
+        "desc": "มูลค่าค่างวด",
+        "type": "money"
+      },
+      "LTax": {
+        "desc": "ภาษีค่างวด (%)",
+        "type": "money"
+      },
+      "Credit": {
+        "desc": "ค่างวดค้าง (รวมภาษี)",
+        "business_name": "ค่างวดค้างรวมภาษี",
+        "type": "money",
+        "keywords": [
+          "ค่างวดค้าง"
+        ]
+      },
+      "Interest": {
+        "desc": "ดอกเบี้ย",
+        "type": "money"
+      },
+      "Full": {
+        "desc": "สถานะการจ่ายครบ",
+        "type": "nvarchar(2)",
+        "options": {
+          "Y": "จ่ายครบแล้ว",
+          "N": "ยังจ่ายไม่ครบ"
+        }
+      },
+      "principle": {
+        "desc": "เงินต้น ไม่รวม Vat",
+        "type": "money"
+      },
+      "MInt": {
+        "desc": "ดอกผล ไม่รวม Vat",
+        "type": "money"
+      },
+      "principleV": {
+        "desc": "เงินต้น รวม Vat",
+        "type": "money"
+      },
+      "MIntV": {
+        "desc": "ดอกผล รวม Vat",
+        "type": "money"
+      },
+      "Fee": {
+        "desc": "ค่าทวงถาม",
+        "type": "money"
+      },
+      "CollectionFee": {
+        "desc": "ค่าติดตามลงพื้นที่",
+        "type": "money"
+      },
+      "VerifyAmt": {
+        "desc": "ค่าตรวจสอบข้อมูล",
+        "type": "money"
+      },
+      "BalprincipleV": {
+        "desc": "เงินต้น รวม Vat คงค้าง",
+        "type": "money"
+      },
+      "BalMIntV": {
+        "desc": "ดอกผล ไม่รวม Vat คงค้าง",
+        "type": "money"
+      },
+      "BalInterest": {
+        "desc": "ดอกเบี้ย คงค้าง",
+        "type": "money"
+      },
+      "BalFee": {
+        "desc": "ค่าทวงถาม คงค้าง",
+        "type": "money"
+      },
+      "BalCollectionFee": {
+        "desc": "ค่าติดตามลงพื้นที่ คงค้าง",
+        "type": "money"
+      },
+      "BalVerifyAmt": {
+        "desc": "ค่าตรวจสอบข้อมูล คงค้าง",
+        "type": "money"
+      },
+      "BalTotal": {
+        "desc": "ยอดคงค้างรายงวดรวมทั้งหมด",
+        "business_name": "ยอดค้างรวมรายงวด",
+        "type": "money",
+        "keywords": [
+          "ค้างรายงวด",
+          "ยอดค้างงวด"
+        ]
       }
     }
   },
