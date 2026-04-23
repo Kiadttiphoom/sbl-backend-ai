@@ -17,6 +17,7 @@ import re
 import json
 import logging
 import time
+import asyncio
 from typing import AsyncGenerator, Dict, Any, List, Optional, Tuple
 
 from core.semantic_layer import SemanticLayer
@@ -172,6 +173,12 @@ class AIController:
                     return content
                 return content[:2000]
         return ""
+
+    def _save_last_result(self, session_id, result):
+        if not hasattr(self, "_session_memory"):
+            self._session_memory = {}
+
+        self._session_memory[session_id] = result
 
     # ── CRM keyword → ให้ dynamic SQL รู้ว่าต้องไป crms ─────────────────────
     _CRM_KEYWORDS = [
@@ -492,103 +499,125 @@ class AIController:
             target_db = "lspdata"
 
             # ── 4. DATA_QUERY / ADVISORY routing ──────────────────────────────
-            if intent in ("DATA_QUERY", "ADVISORY"):
-                # Force Advisory ถ้า keyword ตรง
-                advisory_keywords = r"(ตามยังไง|จัดการยังไง|วิเคราะห์|แนะนำ|แนวทาง|สเต็ป|ท่าไหน|ทำยังไง|ทํายังไง|ทำไม|ทําไม|อย่างไร|แนะนำ|ควรจะ|แนวทาง|วิธี|แก้ปัญหา|ตามได้ไง|วิเคราะห์|ยังไงดี|ให้ติดตามได้|ให้ติดตามหนี้ได้|ให้จ่ายได้|ให้ชำระได้|ทำให้จ่าย|ทำให้ชำระ|จะทำให้|จะช่วยได้|จะแก้ได้|ควรทำอะไร|ควรให้|ควรส่ง|ควรดำเนิน|ควรติดตาม|ควรจัดการ|ควรโอน|มีโอกาสที่จะ|โอกาสที่จะ|เหมาะสมไหม|เป็นไปได้ไหม)"
-                if re.search(advisory_keywords, q.lower()) and history:
+            # ──────────────────────────────
+            # 🔥 INTENT HELPER
+            # ──────────────────────────────
+            def is_advisory(question: str, history) -> bool:
+                advisory_keywords = r"(ตามยังไง|จัดการยังไง|วิเคราะห์|แนะนำ|แนวทาง|สเต็ป|ท่าไหน|ทำยังไง|ทำไม|อย่างไร|ควรจะ|วิธี|แก้ปัญหา|ยังไงดี|ควรทำอะไร|เหมาะสมไหม|เป็นไปได้ไหม)"
+                return bool(history) and re.search(advisory_keywords, question.lower())
+
+
+            # ──────────────────────────────
+            # 🔥 MAIN FLOW (แทน block เดิม)
+            # ──────────────────────────────
+            async def handle_ai(self, q, history, session_id):
+                start_time = time.time()
+
+                intent = "DATA_QUERY"
+
+                # 🔥 HARD OVERRIDE
+                if is_advisory(q, history):
                     intent = "ADVISORY"
-                    yield self._event("status", content="กำลังวิเคราะห์ประวัติการติดตามเพื่อหาแนวทางให้นะครับ...")
 
+                context_str = ""
+                sql = "NO_SQL"
+                db_results = []
+                target_db = None
+
+                # ──────────────────────────────
+                # 🔥 1. ADVISORY (NO SQL)
+                # ──────────────────────────────
                 if intent == "ADVISORY":
-                    yield self._event("status", content="กำลังวิเคราะห์ข้อมูลที่คุณดึงมาก่อนหน้านี้นะครับ...")
+                    yield self._event("status", content="กำลังวิเคราะห์ข้อมูลก่อนหน้านี้นะครับ...")
+
                     context_str = self._extract_last_data_context(history)
+
                     if not context_str:
-                        intent = "DATA_QUERY"
-                    else:
-                        logger.info("Advisory path: using last data context (chars: %d)", len(context_str))
-                        sql = "NO_SQL"
+                        yield self._event("content", content="ไม่มีข้อมูลก่อนหน้าให้วิเคราะห์ครับ")
+                        yield self._event("done", time=round(time.time() - start_time, 2))
+                        return
 
-                if intent == "DATA_QUERY":
-                    yield self._event("status", content="เดี๋ยวผมลองค้นหาข้อมูลในระบบให้นะครับ...")
+                    response_text = await self._call_insight_llm(context_str, q, history)
 
-                    # ── ตรวจ stateful follow-up ก่อน (ไม่ใช้ LLM เลย) ─────────
-                    session = self._extract_session_state(history)
-                    followup_result = self._try_followup_sql(q, session)
+                    yield self._event("content", content=response_text)
+                    yield self._event("done", time=round(time.time() - start_time, 2))
+                    return
 
-                    if followup_result:
-                        sql, target_db = followup_result
-                        yield self._event("sql", sql=sql)
-                        logger.info("⚡ Follow-up path (no LLM) - DB: %s", target_db)
+                # ──────────────────────────────
+                # 🔥 2. DATA QUERY (SQL ONLY)
+                # ──────────────────────────────
+                yield self._event("status", content="เดี๋ยวผมลองค้นหาข้อมูลในระบบให้นะครับ...")
 
-                    else:
-                        # ── Fast route (keyword / token overlap) ─────────────
-                        fast = self._fast_route(q)
+                # 🔹 Follow-up
+                session = self._extract_session_state(history)
+                followup_result = self._try_followup_sql(q, session)
 
-                        if fast:
-                            template_name = fast.get("template_name", "UNKNOWN")
-                            params = fast.get("params", {})
-                            if template_name != "UNKNOWN" and template_name in SQL_TEMPLATES:
-                                sql, _ = render_query(template_name, params)
-                                target_db = get_template_db(template_name)
-                                logger.info("⚡ Template match: %s - DB: %s", template_name, target_db)
+                if followup_result:
+                    sql, target_db = followup_result
+                    yield self._event("sql", sql=sql)
+
+                else:
+                    # 🔹 Fast route
+                    fast = self._fast_route(q)
+
+                    if fast:
+                        template_name = fast.get("template_name", "UNKNOWN")
+                        params = fast.get("params", {})
+
+                        if template_name in SQL_TEMPLATES:
+                            sql, _ = render_query(template_name, params)
+                            target_db = get_template_db(template_name)
+                            yield self._event("sql", sql=sql)
+
+                    if not sql or sql == "NO_SQL":
+                        # 🔹 Dynamic SQL
+                        yield self._event("status", content="ขอเวลาผมตีความหมายข้อมูลสักครู่นะครับ...")
+
+                        semantic = await self.semantic_layer.extract_intent(q)
+                        target_db = self._detect_target_db(q)
+
+                        sql = await self._generate_dynamic_sql(q, semantic, history)
+
+                        if sql != "NO_SQL":
+                            sql = self._fix_common_sql_mistakes(sql)
+
+                            is_valid, error_msg = self.validator.validate(sql, q)
+                            if not is_valid:
+                                sql = "NO_SQL"
+                                context_str = f"ไม่สามารถค้นหาข้อมูลได้ ({error_msg})"
+                            else:
                                 yield self._event("sql", sql=sql)
-                            else:
-                                fast = None  # ไม่ match template จริง → ไป dynamic
+                        else:
+                            context_str = "ไม่พบข้อมูลที่ผู้ใช้ร้องขอ"
 
-                        if not fast:
-                            # ── Dynamic SQL (LLM call #1) ─────────────────────
-                            yield self._event("status", content="ขอเวลาผมตีความหมายข้อมูลสักครู่นะครับ...")
-                            # semantic เป็น Python แล้ว (ไม่ใช้ LLM)
-                            semantic = await self.semantic_layer.extract_intent(q)
-                            logger.info("Semantic Intent: %s", semantic)
-
-                            target_db = self._detect_target_db(q)
-                            yield self._event("status", content="กำลังเตรียมข้อมูลมาให้ดูนะครับ...")
-                            sql = await self._generate_dynamic_sql(q, semantic, history)
-
-                            target_db = self._detect_target_db(q, sql)
-                            if sql != "NO_SQL":
-                                logger.info("Generated Dynamic SQL (pre-fix):\n%s", sql)
-                                sql = self._fix_common_sql_mistakes(sql)
-                                is_valid, error_msg = self.validator.validate(sql, q)
-                                if not is_valid:
-                                    sql = "NO_SQL"
-                                    context_str = f"ไม่สามารถค้นหาข้อมูลได้เนื่องจากเงื่อนไขไม่ครบถ้วน ({error_msg})"
-                                else:
-                                    yield self._event("sql", sql=sql)
-                            else:
-                                context_str = "ไม่พบข้อมูลที่ผู้ใช้ร้องขอ"
-
+                # ──────────────────────────────
+                # 🔥 EXECUTE SQL
+                # ──────────────────────────────
                 if sql != "NO_SQL":
                     try:
-                        import asyncio
                         db_results = await asyncio.to_thread(fetch_data, sql, db=target_db)
+
                         if db_results:
-                            display_count = len(db_results)
-                            for row in db_results:
-                                section = str(row.get("Section", ""))
-                                if "สถิติรวม" in section:
-                                    import re as _re
-                                    m = _re.search(r"ทั้งหมด\s*(\d+)\s*ครั้ง", str(row.get("FDetail", "")))
-                                    if m:
-                                        display_count = int(m.group(1))
-                                    break
-                            logger.info("DB rows: %d (display_count: %d)", len(db_results), display_count)
-                            yield self._event("data_count", count=display_count)
+                            # 🔥 SAVE MEMORY (สำคัญมาก)
+                            self._save_last_result(session_id, db_results)
+
                             context_str = engine.format_db_results(
                                 db_results, self.schema, question=q, intent=intent
                             )
-                            stats_str = engine.get_summary_stats(db_results)
-                        else:
-                            logger.warning("Query returned 0 rows")
-                            context_str = "ไม่พบข้อมูลที่ตรงกับเงื่อนไขในฐานข้อมูล (โปรดตอบผู้ใช้อย่างสุภาพว่าหาข้อมูลไม่เจอ)"
-                    except Exception as e:
-                        logger.error("DB execution error: %s", e)
-                        context_str = f"[DB_ERROR] เกิดข้อผิดพลาดในการดึงข้อมูลสำหรับคำถามนี้: {e} — กรุณาตอบผู้ใช้ตรงๆ ว่าระบบดึงข้อมูลไม่สำเร็จสำหรับคำถามปัจจุบัน อย่านำข้อมูลหรือคำถามก่อนหน้ามาตอบแทน"
 
-                elif not context_str:
-                    yield self._event("status", content="รอสักครู่นะครับ ผมกำลังสรุปผลให้ครับ...")
-                    context_str = "ไม่พบข้อมูลที่ตรงกับเงื่อนไขในฐานข้อมูล (โปรดตอบผู้ใช้อย่างสุภาพว่าหาข้อมูลไม่เจอ)"
+                            # ❗ NO LLM
+                            yield self._event("content", content=context_str)
+
+                        else:
+                            yield self._event("content", content="ไม่พบข้อมูลที่ตรงกับเงื่อนไข")
+
+                    except Exception as e:
+                        yield self._event("content", content=f"เกิดข้อผิดพลาด: {e}")
+
+                else:
+                    yield self._event("content", content=context_str or "ไม่พบข้อมูล")
+
+                yield self._event("done", time=round(time.time() - start_time, 2))
 
             # ── 5. Final answer (LLM call #2) ──────────────────────────────────
             yield self._event("status", content="เรียบร้อยครับ เดี๋ยวผมสรุปให้อ่านง่ายๆ นะครับ...")

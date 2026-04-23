@@ -117,7 +117,7 @@ def detect_intent(q: str, history: Optional[List[Dict[str, str]]] = None) -> Dic
                     "confidence": "high", 
                     "matched": ["advisory_intent_with_history"]
                 }
-
+    
     has_history = bool(history)
     is_fup = _is_followup(q, history or [])
 
