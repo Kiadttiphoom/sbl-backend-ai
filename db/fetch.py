@@ -7,8 +7,10 @@ import os
 import logging
 from typing import List, Dict, Any, Literal
 
+import re
 from db.connector import get_connection
 from core.exceptions import DatabaseError
+from config import LLM_TIMEOUT
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +37,8 @@ def fetch_data(sql: str, db: DBName = "lspdata") -> List[Dict[str, Any]]:
     try:
         logger.info("Executing SQL [%s]:\n%s", db, sql)
         with get_connection(db) as conn:
-            conn.timeout =  _get_env("LLM_TIMEOUT")
+            # ใช้ค่าจาก config ซึ่งเป็น int อยู่แล้ว
+            conn.timeout = LLM_TIMEOUT
             cursor = conn.cursor()
             cursor.execute(sql)
             if not cursor.description:

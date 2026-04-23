@@ -467,6 +467,7 @@ class AIController:
         return json.dumps({"type": type_, **kwargs}, ensure_ascii=False) + "\n"
 
     # ── Main pipeline ─────────────────────────────────────────────────────────
+    # ── Main pipeline ─────────────────────────────────────────────────────────
     async def process_request(
         self, q: str, history: List[Dict[str, str]]
     ) -> AsyncGenerator[str, None]:
@@ -483,14 +484,20 @@ class AIController:
             if chitchat_reply is not None:
                 yield self._event("intent", intent="CHITCHAT", confidence="high")
                 yield self._event("content", content=chitchat_reply)
-                yield self._event("done", elapsed=round(time.time() - start_time, 2))
+                yield self._event("done", time=round(time.time() - start_time, 2))
                 return
 
             # 3. Intent detection
             yield self._event("status", content="กำลังทำความเข้าใจสิ่งที่คุณต้องการครับ...")
             intent_res = detect_intent(q, history)
             intent = intent_res["intent"]
-            yield self._event("intent", intent=intent, confidence=intent_res["confidence"])
+
+            # 🔥 HARD OVERRIDE สำหรับ ADVISORY
+            advisory_keywords = r"(ตามยังไง|จัดการยังไง|วิเคราะห์|แนะนำ|แนวทาง|สเต็ป|ท่าไหน|ทำยังไง|ทำไม|อย่างไร|ควรจะ|วิธี|แก้ปัญหา|ยังไงดี|ควรทำอะไร|เหมาะสมไหม|เป็นไปได้ไหม)"
+            if history and re.search(advisory_keywords, q.lower()):
+                intent = "ADVISORY"
+
+            yield self._event("intent", intent=intent, confidence=intent_res.get("confidence", "high"))
 
             context_str = ""
             stats_str = ""
@@ -498,129 +505,95 @@ class AIController:
             sql = "NO_SQL"
             target_db = "lspdata"
 
-            # ── 4. DATA_QUERY / ADVISORY routing ──────────────────────────────
-            # ──────────────────────────────
-            # 🔥 INTENT HELPER
-            # ──────────────────────────────
-            def is_advisory(question: str, history) -> bool:
-                advisory_keywords = r"(ตามยังไง|จัดการยังไง|วิเคราะห์|แนะนำ|แนวทาง|สเต็ป|ท่าไหน|ทำยังไง|ทำไม|อย่างไร|ควรจะ|วิธี|แก้ปัญหา|ยังไงดี|ควรทำอะไร|เหมาะสมไหม|เป็นไปได้ไหม)"
-                return bool(history) and re.search(advisory_keywords, question.lower())
+            # ── 4. แยกการทำงาน 2 โหมดให้เด็ดขาด (เพื่อไม่ให้มันชนกัน) ──────────────────
 
+            # โหมดที่ 1: ADVISORY (วิเคราะห์จากตารางเดิมที่คุยกัน ไม่ดึง SQL ใหม่)
+            if intent == "ADVISORY":
+                yield self._event("status", content="กำลังวิเคราะห์ข้อมูลก่อนหน้านี้นะครับ...")
+                context_str = self._extract_last_data_context(history)
 
-            # ──────────────────────────────
-            # 🔥 MAIN FLOW (แทน block เดิม)
-            # ──────────────────────────────
-            async def handle_ai(self, q, history, session_id):
-                start_time = time.time()
-
-                intent = "DATA_QUERY"
-
-                # 🔥 HARD OVERRIDE
-                if is_advisory(q, history):
-                    intent = "ADVISORY"
-
-                context_str = ""
-                sql = "NO_SQL"
-                db_results = []
-                target_db = None
-
-                # ──────────────────────────────
-                # 🔥 1. ADVISORY (NO SQL)
-                # ──────────────────────────────
-                if intent == "ADVISORY":
-                    yield self._event("status", content="กำลังวิเคราะห์ข้อมูลก่อนหน้านี้นะครับ...")
-
-                    context_str = self._extract_last_data_context(history)
-
-                    if not context_str:
-                        yield self._event("content", content="ไม่มีข้อมูลก่อนหน้าให้วิเคราะห์ครับ")
-                        yield self._event("done", time=round(time.time() - start_time, 2))
-                        return
-
-                    response_text = await self._call_insight_llm(context_str, q, history)
-
-                    yield self._event("content", content=response_text)
+                if not context_str:
+                    yield self._event("content", content="ไม่มีข้อมูลก่อนหน้าให้วิเคราะห์ครับ กรุณาสั่งดึงข้อมูลก่อนนะครับ")
                     yield self._event("done", time=round(time.time() - start_time, 2))
                     return
 
-                # ──────────────────────────────
-                # 🔥 2. DATA QUERY (SQL ONLY)
-                # ──────────────────────────────
+                # ปล่อยทะลุลงไปที่ข้อ 5 (Final answer) เพื่อให้ AI อ่านข้อมูลเก่าและสรุป
+
+            # โหมดที่ 2: DATA_QUERY (ดึงตารางจากฐานข้อมูล แล้วหยุด!)
+            else:
                 yield self._event("status", content="เดี๋ยวผมลองค้นหาข้อมูลในระบบให้นะครับ...")
 
-                # 🔹 Follow-up
+                # 🔹 ตรวจสอบว่าเป็นคำถาม Follow-up หรือไม่
                 session = self._extract_session_state(history)
                 followup_result = self._try_followup_sql(q, session)
 
                 if followup_result:
                     sql, target_db = followup_result
                     yield self._event("sql", sql=sql)
-
                 else:
-                    # 🔹 Fast route
+                    # 🔹 ค้นหาด้วย Fast route (Keyword)
                     fast = self._fast_route(q)
-
                     if fast:
                         template_name = fast.get("template_name", "UNKNOWN")
                         params = fast.get("params", {})
-
                         if template_name in SQL_TEMPLATES:
                             sql, _ = render_query(template_name, params)
                             target_db = get_template_db(template_name)
                             yield self._event("sql", sql=sql)
-
+                    
+                    # 🔹 ถ้าหาไม่เจอ ให้ AI สร้าง SQL ใหม่
                     if not sql or sql == "NO_SQL":
-                        # 🔹 Dynamic SQL
                         yield self._event("status", content="ขอเวลาผมตีความหมายข้อมูลสักครู่นะครับ...")
-
                         semantic = await self.semantic_layer.extract_intent(q)
                         target_db = self._detect_target_db(q)
-
                         sql = await self._generate_dynamic_sql(q, semantic, history)
 
                         if sql != "NO_SQL":
                             sql = self._fix_common_sql_mistakes(sql)
-
                             is_valid, error_msg = self.validator.validate(sql, q)
                             if not is_valid:
                                 sql = "NO_SQL"
                                 context_str = f"ไม่สามารถค้นหาข้อมูลได้ ({error_msg})"
                             else:
                                 yield self._event("sql", sql=sql)
-                        else:
-                            context_str = "ไม่พบข้อมูลที่ผู้ใช้ร้องขอ"
 
                 # ──────────────────────────────
-                # 🔥 EXECUTE SQL
+                # 🔥 รันฐานข้อมูล และตอบผลลัพธ์
                 # ──────────────────────────────
                 if sql != "NO_SQL":
                     try:
                         db_results = await asyncio.to_thread(fetch_data, sql, db=target_db)
-
                         if db_results:
-                            # 🔥 SAVE MEMORY (สำคัญมาก)
-                            self._save_last_result(session_id, db_results)
-
+                            self._save_last_result("session_default", db_results)
                             context_str = engine.format_db_results(
                                 db_results, self.schema, question=q, intent=intent
                             )
-
-                            # ❗ NO LLM
+                            
+                            # ✅ โชว์ตาราง
                             yield self._event("content", content=context_str)
+                            # ✅ ส่ง Session 
+                            yield self._event("session_sql", sql=sql, db=target_db)
+                            
+                            # 🔥 FIX สำคัญที่สุด: สั่งจบการทำงาน (Return) ตรงนี้เลย! ไม่ต้องให้ LLM ไปนั่งสรุปตารางอีกรอบ
+                            yield self._event("done", time=round(time.time() - start_time, 2))
+                            return
 
                         else:
-                            yield self._event("content", content="ไม่พบข้อมูลที่ตรงกับเงื่อนไข")
+                            yield self._event("content", content="ไม่พบข้อมูลที่ตรงกับเงื่อนไขครับ")
+                            yield self._event("done", time=round(time.time() - start_time, 2))
+                            return
 
                     except Exception as e:
-                        yield self._event("content", content=f"เกิดข้อผิดพลาด: {e}")
-
+                        yield self._event("content", content=f"เกิดข้อผิดพลาดในการดึงข้อมูล: {e}")
+                        yield self._event("done", time=round(time.time() - start_time, 2))
+                        return
                 else:
-                    yield self._event("content", content=context_str or "ไม่พบข้อมูล")
+                    yield self._event("content", content=context_str or "ขออภัยครับ ไม่สามารถสร้างคำสั่งดึงข้อมูลได้")
+                    yield self._event("done", time=round(time.time() - start_time, 2))
+                    return
 
-                yield self._event("done", time=round(time.time() - start_time, 2))
-
-            # ── 5. Final answer (LLM call #2) ──────────────────────────────────
-            yield self._event("status", content="เรียบร้อยครับ เดี๋ยวผมสรุปให้อ่านง่ายๆ นะครับ...")
+            # ── 5. Final answer (LLM call #2) - จะทำงานเฉพาะโหมด ADVISORY เท่านั้น ─────────────────
+            yield self._event("status", content="เรียบร้อยครับ เดี๋ยวผมวิเคราะห์และสรุปให้นะครับ...")
 
             from prompts.insight import (
                 INSIGHT_SYSTEM,
@@ -631,44 +604,28 @@ class AIController:
                 CRM_LOG_PROMPT_TEMPLATE,
             )
 
-            full_context = context_str
             ai_context = context_str
 
-            # บีบอัดข้อมูลสำหรับ AI (ส่งแค่ 7 แถวล่าสุด)
+            # บีบอัดข้อมูลกัน Token เต็ม
             if "FDATE" in context_str or "|" in context_str:
                 lines = context_str.split("\n")
                 header_lines = [l for l in lines[:3] if "|" in l or "---" in l]
                 data_lines = [l for l in lines[3:] if "|" in l]
                 if len(data_lines) > 7:
-                    ai_context = "\n".join(header_lines + data_lines[:7] + ["... (ข้อมูลก่อนหน้านี้ถูกตัดออกเพื่อการประมวลผลที่รวดเร็ว)"])
+                    ai_context = "\n".join(header_lines + data_lines[:7] + ["... (ข้อมูลก่อนหน้านี้ถูกตัดออกเพื่อความรวดเร็ว)"])
 
-            stats_str = stats_str if stats_str else ""
             hist_str = "\n".join([f"{m['role']}: {m['content']}" for m in history[-5:]])
 
-            is_crm_log = (
-                intent != "ADVISORY"
-                and ("FDATE" in context_str or "Section" in context_str)
-            )
+            is_crm_log = ("FDATE" in context_str or "Section" in context_str)
 
-            if intent == "GENERAL":
-                final_prompt = GENERAL_PROMPT_TEMPLATE.format(question=q, history=hist_str)
-                system_prompt = GENERAL_SYSTEM
-                insight_tokens = 800
-            elif intent == "ADVISORY":
-                final_prompt = INSIGHT_PROMPT_TEMPLATE.format(
-                    question=q, context=ai_context,
-                    stats=stats_str if stats_str else "N/A", history=hist_str,
-                )
-                system_prompt = INSIGHT_SYSTEM
-                insight_tokens = 1200
-            elif is_crm_log:
-                final_prompt = CRM_LOG_PROMPT_TEMPLATE.format(context=context_str)
+            if is_crm_log:
+                final_prompt = CRM_LOG_PROMPT_TEMPLATE.format(context=ai_context)
                 system_prompt = CRM_LOG_SYSTEM
                 insight_tokens = 1500
             else:
                 final_prompt = INSIGHT_PROMPT_TEMPLATE.format(
                     question=q, context=ai_context,
-                    stats=stats_str if stats_str else "N/A", history=hist_str,
+                    stats="N/A", history=hist_str,
                 )
                 system_prompt = INSIGHT_SYSTEM
                 insight_tokens = 1200
@@ -696,16 +653,11 @@ class AIController:
                     if response_text:
                         yield self._event("content", content=response_text)
                     else:
-                        yield self._event("content", content="ขออภัยครับ ระบบ AI ไม่สามารถสรุปข้อมูลได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง")
+                        yield self._event("content", content="ขออภัยครับ ระบบ AI ไม่สามารถสรุปได้ ลองใหม่อีกครั้งนะครับ")
                 except Exception as fallback_err:
-                    logger.error("Fallback generate also failed: %s", fallback_err)
-                    yield self._event("content", content="ขออภัยครับ ระบบ AI ไม่ตอบสนองในขณะนี้ กรุณาลองใหม่ภายหลัง")
+                    logger.error("Fallback generate failed: %s", fallback_err)
+                    yield self._event("content", content="ขออภัยครับ ระบบ AI ไม่ตอบสนองในขณะนี้")
 
-            # ── Emit last_sql ให้ frontend เก็บไว้เป็น session state ──────────
-            if sql != "NO_SQL":
-                yield self._event("session_sql", sql=sql, db=target_db)
-
-            logger.info("AI Insight: %.100s", response_text)
             yield self._event("done", time=round(time.time() - start_time, 2))
 
         except SecurityError as e:
