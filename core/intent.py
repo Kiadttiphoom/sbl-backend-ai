@@ -43,10 +43,12 @@ _FOLLOWUP_PATTERNS: List[str] = [
 
 # Advisory patterns — ตรวจ 2 รอบ: (1) ถ้ามี history และ (2) standalone
 _ADVISORY_PATTERNS: List[str] = [
+    # เพิ่มคำสั่งเชิงกลยุทธ์และการจัดการ
     r"(ทำยังไง|ทํายังไง|ทำไม|ทําไม|อย่างไร|แนะนำ|ควรจะ|แนวทาง|วิธี|แก้ปัญหา|ตามได้ไง|วิเคราะห์|ยังไงดี)",
-    r"(ให้ติดตามได้|ให้ติดตามหนี้ได้|ให้จ่ายได้|ให้ชำระได้|ทำให้จ่าย|ทำให้ชำระ|จะทำให้|จะช่วยได้|จะแก้ได้|ควรทำอะไร)",
-    r"(ควรให้|ควรส่ง|ควรดำเนิน|ควรติดตาม|ควรจัดการ|ควรโอน|ควรเปลี่ยน)",
-    r"(มีโอกาสที่จะ|โอกาสที่จะ|น่าจะ.{0,10}ไหม|เหมาะสมไหม|เป็นไปได้ไหม)",
+    r"(ตามหนี้|ตามงาน|จัดการยังไง|ท่าไหนดี|ดำเนินการต่อ|สเต็ปถัดไป|next step)",
+    r"(ให้ติดตามได้|ทำให้จ่าย|ชำระได้|จะช่วยได้|จะแก้ได้|ควรทำอะไร)",
+    r"(ควรให้|ควรส่ง|ควรดำเนิน|ควรจัดการ|ควรโอน|ควรเปลี่ยน)",
+    r"(โอกาสที่จะ|เหมาะสมไหม|เป็นไปได้ไหม|ความเสี่ยง)",
 ]
 
 def _is_followup(q: str, history: List[Dict[str, str]]) -> bool:
@@ -107,6 +109,15 @@ def detect_intent(q: str, history: Optional[List[Dict[str, str]]] = None) -> Dic
     matched: List[str] = []
 
     # 1. Advisory Detection — ตรวจก่อน STRONG_DATA_KEYWORDS เสมอถ้ามี history
+    if history:
+        for pattern in _ADVISORY_PATTERNS:
+            if re.search(pattern, ql):
+                return {
+                    "intent": "ADVISORY", 
+                    "confidence": "high", 
+                    "matched": ["advisory_intent_with_history"]
+                }
+
     has_history = bool(history)
     is_fup = _is_followup(q, history or [])
 

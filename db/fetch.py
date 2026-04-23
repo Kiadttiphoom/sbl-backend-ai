@@ -3,7 +3,7 @@ Data Fetcher — Multi-Database
 - ระบุ db="lspdata" หรือ db="crms" เพื่อเลือก connection pool
 - OOM Protection: fetchmany(1000)
 """
-
+import os
 import logging
 from typing import List, Dict, Any, Literal
 
@@ -15,6 +15,13 @@ logger = logging.getLogger(__name__)
 _FETCH_LIMIT = 1000
 # Type hint สำหรับช่วยบอกว่าใช้ alias อะไรได้บ้าง (str ธรรมดาเพื่อให้ dynamic)
 DBName = str
+
+def _get_env(key: str, default: str = None) -> str:
+    val = os.getenv(key, default)
+    if val and "{" in val:
+        # Interpolate {VAR} patterns
+        val = re.sub(r"\{(\w+)\}", lambda m: os.getenv(m.group(1), m.group(0)), val)
+    return val
 
 
 def fetch_data(sql: str, db: DBName = "lspdata") -> List[Dict[str, Any]]:
@@ -28,7 +35,7 @@ def fetch_data(sql: str, db: DBName = "lspdata") -> List[Dict[str, Any]]:
     try:
         logger.info("Executing SQL [%s]:\n%s", db, sql)
         with get_connection(db) as conn:
-            conn.timeout = 20  # Hard query timeout 20s
+            conn.timeout =  _get_env("LLM_TIMEOUT")
             cursor = conn.cursor()
             cursor.execute(sql)
             if not cursor.description:

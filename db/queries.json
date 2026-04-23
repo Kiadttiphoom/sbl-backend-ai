@@ -59,8 +59,8 @@
             ]
         },
         "OVERDUE_35_DAYS": {
-            "sql": "SELECT LSM010.OLID, LSM010.AccNo, LSM010.FolID, LSM007.FolName FROM LSM010 INNER JOIN LSM007 ON LSM007.FolID = LSM010.FolID WHERE LSM010.Stat2 = 'F' AND LSM010.FolID != ''",
-            "description": "ลูกหนี้ครบกำหนดบอกเลิก 35 วัน (Stat2=F) — ไม่มี param",
+            "sql": "SELECT TOP 5 LSM010.AccNo, LSM010.OLID, LSM010.Bal, LSM007.FolName FROM LSM010 INNER JOIN LSM007 ON LSM007.FolID = LSM010.FolID WHERE LSM010.Stat2 = 'F' ORDER BY LSM010.Bal DESC",
+            "description": "ลูกหนี้ค้างเกิน 3 เดือนอันดับต้นๆ",
             "category": "delinquency",
             "subcategory": "aging",
             "params": [],
@@ -72,7 +72,10 @@
                 "ครบกำหนดบอกเลิก 35 วันมีเท่าไหร่",
                 "พนักงานคนไหนดูแลลูกหนี้ถึงกำหนดบอกเลิกเยอะที่สุด",
                 "สัญญาที่ค้างเกิน 35 วัน พ้นกำหนดแล้ว",
-                "35 วันของใครบ้าง"
+                "35 วันของใครบ้าง",
+                "ขอ 5 สัญญาอันดับแรก ที่ ค้างเกิน 3 เดือน",
+                "สัญญาที่ค้างเกิน 3 เดือน 5 รายแรก",
+                "ใครค้างเกิน 90 วันบ้าง ขอ 5 อันดับ"
             ]
         },
         "LEGAL_CASE": {

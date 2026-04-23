@@ -44,4 +44,4 @@ def mask_sensitive_data(rows: list) -> list:
 # Initialize Global Pipeline
 pipeline = DataPipeline()
 pipeline.add_step(format_numeric_values)
-# pipeline.add_step(mask_sensitive_data) # ปิดไว้ก่อนจนกว่าจะต้องการใช้งานจริง
+pipeline.add_step(mask_sensitive_data)
