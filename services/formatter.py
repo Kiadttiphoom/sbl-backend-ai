@@ -97,11 +97,20 @@ class AnalysisEngine:
                 return col_info.get("desc", key).split("(")[0].strip()
         return key
 
+    # คอลัมน์ที่ถ้า NULL/empty = ไม่มีผู้รับผิดชอบ
+    _UNASSIGNED_KEYS = frozenset({"FOLID", "FOL_ID", "EMPID", "EMP_ID"})
+
     def _translate_value(self, key: str, val: Any, schema: Dict[str, Any]) -> str:
-        if val is None or val == "":
+        key_u = key.upper()
+
+        # NULL / empty
+        if val is None or (isinstance(val, str) and val.strip() == ""):
+            if key_u in self._UNASSIGNED_KEYS:
+                return "ไม่มีผู้ดูแล"
             return "-"
         
         val_str = str(val).strip()
+
         # Auto-format YYYYMMDD date strings (e.g., 20250422 -> 22/04/2025)
         if len(val_str) == 8 and val_str.isdigit() and val_str.startswith(("20", "25", "19")):
             try:
@@ -112,8 +121,7 @@ class AnalysisEngine:
                 pass
 
         # DATA CLEANUP: ปรับปรุงข้อความให้อ่านง่ายขึ้น แต่คงเบอร์โทรไว้ตามต้องการ
-        if key.upper() == "FDETAIL":
-            # ลดข้อความที่มักยาวเกินไปและซ้ำซ้อน
+        if key_u == "FDETAIL":
             val_str = val_str.replace("ผู้ซื้อ ไม่รับสาย", "ไม่รับสาย").replace("ไม่เปิดบริการ", "ปิดเครื่อง")
 
         for table in ("LSM010", "LSM007"):
@@ -190,31 +198,69 @@ class AnalysisEngine:
             
             ctx = "\n\n".join(output_parts)
         elif len(sample) == 1 and len(keys) == 1:
-            # ── Single Value Formatting (Avoid Table for scalar counts) ──────────
+            # ── Single Value Formatting — แสดงเป็นประโยคภาษาไทย ไม่โชว์ชื่อ column ──
             key = keys[0]
-            label = self._get_label(key, schema)
-            val = self._translate_value(key, sample[0][key], schema)
-            if key.upper() in _NUMERIC_KEYS and isinstance(sample[0][key], (int, float)):
-                val = f"{sample[0][key]:,.2f}"
-            ctx = f"{label}: {val}"
+            raw_val = sample[0][key]
+            key_u = key.upper()
+
+            _COUNT_KEYS = frozenset({
+                "TOTAL_COUNT", "TOTALCOUNT", "COUNT", "CNT",
+                "NUM", "NUMROWS", "ROWCOUNT", "ROW_COUNT",
+            })
+            _MONEY_KEYS = frozenset({
+                "TOTALBALANCE", "TOTAL_BALANCE", "TOTALCREDIT", "TOTAL_CREDIT",
+                "TOTALINTEREST", "TOTAL_INTEREST", "TOTALVAT", "TOTAL_VAT",
+                "BAL", "CREDIT", "INTEREST", "AMOUNT", "SUM",
+            })
+
+            if key_u in _COUNT_KEYS or "COUNT" in key_u or "CNT" in key_u:
+                # นับจำนวน → "มีทั้งหมด X,XXX ราย"
+                try:
+                    n = int(raw_val)
+                    ctx = f"มีทั้งหมด **{n:,} ราย**"
+                except (TypeError, ValueError):
+                    ctx = f"ผลลัพธ์: **{raw_val}**"
+            elif key_u in _MONEY_KEYS or "BAL" in key_u or "AMOUNT" in key_u:
+                # ยอดเงิน → "รวมทั้งสิ้น X,XXX.XX บาท"
+                try:
+                    ctx = f"รวมทั้งสิ้น **{float(raw_val):,.2f} บาท**"
+                except (TypeError, ValueError):
+                    ctx = f"ผลลัพธ์: **{raw_val}**"
+            elif isinstance(raw_val, (int, float)) and not isinstance(raw_val, bool):
+                # ตัวเลขอื่นๆ → แสดงพร้อมหน่วยที่เหมาะสม
+                try:
+                    ctx = f"**{float(raw_val):,.2f}**"
+                except Exception:
+                    ctx = f"**{raw_val}**"
+            else:
+                ctx = f"**{raw_val}**"
         else:
             # ── Standard Table Formatting (Fallback) ───────────────────────────────
             lines = [
                 "| " + " | ".join(headers) + " |",
                 "|" + "|".join(["---"] * len(headers)) + "|",
             ]
+            unassigned_count = 0
             for row in sample:
                 cells = []
+                row_has_no_owner = False
                 for k in keys:
                     v = self._translate_value(k, row[k], schema)
                     raw = row[k]
                     if k.upper() in _NUMERIC_KEYS and isinstance(raw, (int, float)):
                         v = f"{raw:,.2f}"
+                    if k.upper() in self._UNASSIGNED_KEYS and v == "ไม่มีผู้ดูแล":
+                        row_has_no_owner = True
                     v_str = str(v).replace("\n", " ").replace("|", "\\|").strip()
                     if len(v_str) > 200: v_str = v_str[:197] + "..."
                     cells.append(v_str)
                 lines.append("| " + " | ".join(cells) + " |")
+                if row_has_no_owner:
+                    unassigned_count += 1
             ctx = "\n".join(lines)
+            # ⚠️ แจ้งเตือนถ้ามีสัญญาที่ไม่มีผู้รับผิดชอบ
+            if unassigned_count > 0:
+                ctx += f"\n\n> ⚠️ **พบ {unassigned_count} สัญญาที่ยังไม่มีผู้รับผิดชอบ** กรุณามอบหมายเจ้าหน้าที่ติดตามโดยด่วนครับ"
 
         if len(results) > limit:
             ctx += f"\n\n*... ยังมีข้อมูลการติดตามอื่นอีก {len(results) - limit} รายการ คุณสามารถสอบถามรายละเอียดเพิ่มเติมได้ครับ*"

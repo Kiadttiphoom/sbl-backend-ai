@@ -54,8 +54,8 @@ async def reload_examples():
         reload_training()
         return {"status": "ok", "message": "Few-shot examples reloaded successfully"}
     except Exception as e:
-        logger.error("Reload failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))  # ✅ แก้ tuple
+        logger.error("Reload failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="ไม่สามารถโหลดข้อมูลใหม่ได้ กรุณาติดต่อผู้ดูแลระบบ")
 
 if __name__ == "__main__":
     import uvicorn

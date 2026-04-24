@@ -165,15 +165,63 @@ class AIController:
         return sql
 
     def _extract_last_data_context(self, history: List[Dict[str, str]]) -> str:
-        """ดึงข้อมูลตารางหรือสรุปจากข้อความล่าสุดของ Assistant เพื่อนำมาใช้ประมวลผลต่อ"""
+        """ดึงข้อมูลและแปลงเป็น summary ที่ LLM อ่านแล้วให้คำแนะนำได้"""
+
+        # 1. ดึงจาก session_memory (raw DB rows ล่าสุด)
+        if hasattr(self, "_session_memory") and self._session_memory:
+            mem = self._session_memory.get("session_default")
+            if mem and isinstance(mem, list) and len(mem) > 0:
+                return self._format_rows_as_context(mem)
+
+        # 2. Fallback: หา content ที่มีข้อมูลพอสมควรใน history
         for m in reversed(history):
             if m["role"] == "assistant":
                 content = m["content"]
                 if "|" in content or "### " in content:
-                    return content
-                return content[:2000]
+                    return content[:2000]
+                if len(content) > 100:
+                    return content[:2000]
         return ""
 
+    def _format_rows_as_context(self, rows: list) -> str:
+        """แปลง DB rows เป็น context summary อ่านง่ายสำหรับ LLM"""
+        lines = []
+        current_section = None
+
+        for row in rows[:20]:
+            # ตรวจว่าเป็น CRM Log (มี Section field)
+            section = row.get("Section") or row.get("section", "")
+            if section and section != current_section:
+                current_section = section
+                # แปลง section code เป็น label อ่านง่าย
+                label = (section
+                    .replace("1_ประวัติการติดตามล่าสุด_(5_ครั้ง)", "📋 ประวัติล่าสุด 5 ครั้ง")
+                    .replace("2_ประวัติการติดตามแรกสุด_(3_ครั้ง)", "📋 ประวัติแรกสุด 3 ครั้ง")
+                    .replace("3_สรุปสถิติภาพรวม", "📊 สถิติรวม")
+                    .replace("4_สรุปประวัติแยกตามสถานะ", "📈 สรุปตามสถานะ")
+                )
+                lines.append(f"\n{label}:")
+
+            fdate = row.get("FDate") or row.get("fdate", "")
+            fdetail = row.get("FDetail") or row.get("fdetail", "") or ""
+            status1 = row.get("Status1") or row.get("status1", "")
+            status2 = row.get("Status2") or row.get("status2", "")
+
+            if fdetail:
+                detail_parts = []
+                if fdate:
+                    detail_parts.append(f"วันที่ {fdate}")
+                if status1:
+                    detail_parts.append(f"สถานะ: {status1}")
+                if status2 and status2 != status1:
+                    detail_parts.append(f"/ {status2}")
+                detail_parts.append(str(fdetail)[:120])
+                lines.append("  • " + " | ".join(detail_parts))
+            elif not section:
+                # ไม่ใช่ CRM format — dump แบบ key=value ธรรมดา
+                lines.append("  " + ", ".join(f"{k}={v}" for k, v in row.items() if v is not None))
+
+        return "\n".join(lines)[:3000]
     def _save_last_result(self, session_id, result):
         if not hasattr(self, "_session_memory"):
             self._session_memory = {}
@@ -345,6 +393,8 @@ class AIController:
          "CRM_FOLLOWUP_STATUS_COUNTS"),
         (["crm ล่าสุด", "ประวัติติดต่อในระบบ crms", "รายการการติดตามล่าสุด"],
          "CRM_CONTACT_LIST"),
+        (["มีผู้ดูแลด้วย", "ที่มีผู้ดูแล", "พร้อมผู้ดูแล", "มีผู้รับผิดชอบ", "ที่มีผู้รับผิดชอบ"],
+         "OVERDUE_ASSIGNED"),
         (["บอกเลิก 35", "ครบกำหนดบอกเลิก", "ถึงกำหนดบอกเลิก", "stat2 f"],
          "OVERDUE_35_DAYS"),
         (["ติดคดี", "ฟ้องร้อง", "ส่งกฎหมาย", "ฟ้องแล้ว", "stat2 g"],
@@ -460,6 +510,20 @@ class AIController:
             else:
                 params["yrs"] = time.strftime("%Y")
 
+        if ":limit" in needed:
+            # ค้นหาตัวเลขจากคำถาม: "ขอ 10 สัญญา", "20 ราย", "top 15" เป็นต้น
+            lm = re.search(
+                r"(?:ขอ|top|แสดง|ดู|อันดับ)?\s*(\d+)\s*(?:สัญญา|รายการ|ราย|อันดับ|แรก|สุดท้าย)?",
+                q,
+            )
+            raw_limit = int(lm.group(1)) if lm else 10
+            _MAX_LIMIT = 50
+            if raw_limit > _MAX_LIMIT:
+                params["limit"] = raw_limit  # เก็บไว้เพื่อให้ pipeline ตรวจสอบ
+                params["__limit_exceeded"] = True
+            else:
+                params["limit"] = max(1, raw_limit)
+
         return params
 
     # ── SSE helper ────────────────────────────────────────────────────────────
@@ -493,7 +557,7 @@ class AIController:
             intent = intent_res["intent"]
 
             # 🔥 HARD OVERRIDE สำหรับ ADVISORY
-            advisory_keywords = r"(ตามยังไง|จัดการยังไง|วิเคราะห์|แนะนำ|แนวทาง|สเต็ป|ท่าไหน|ทำยังไง|ทำไม|อย่างไร|ควรจะ|วิธี|แก้ปัญหา|ยังไงดี|ควรทำอะไร|เหมาะสมไหม|เป็นไปได้ไหม)"
+            advisory_keywords = r"(ตามยังไง|ตามหนี้|จัดการยังไง|จัดการ|วิเคราะห์|แนะนำ|แนวทาง|สเต็ป|ท่าไหน|ทำยังไง|ทำ[ยอ]ังไง|ยังไงให้|ทำไม|อย่างไร|ควรจะ|วิธี|แก้ปัญหา|แก้ไข|ยังไงดี|ควรทำอะไร|เหมาะสมไหม|เป็นไปได้ไหม|ช่วยด้วย|จะทำอะไร|ควรทำ|เริ่มยังไง|จะเริ่ม|ทำต่อ|ต่อไป)"
             if history and re.search(advisory_keywords, q.lower()):
                 intent = "ADVISORY"
 
@@ -536,6 +600,16 @@ class AIController:
                     if fast:
                         template_name = fast.get("template_name", "UNKNOWN")
                         params = fast.get("params", {})
+
+                        # ✅ Validate limit ก่อน render — ถ้าเกิน 50 ตอบ friendly แล้ว return
+                        if params.get("__limit_exceeded"):
+                            yield self._event(
+                                "content",
+                                content="ขอโทษนะครับ ระบบแสดงได้สูงสุด 50 สัญญาต่อครั้ง ลองขอใหม่ได้เลยครับ เช่น \"ขอ 20 สัญญา\" หรือ \"ขอ 50 สัญญา\" ครับ",
+                            )
+                            yield self._event("done", time=round(time.time() - start_time, 2))
+                            return
+
                         if template_name in SQL_TEMPLATES:
                             sql, _ = render_query(template_name, params)
                             target_db = get_template_db(template_name)
@@ -584,7 +658,8 @@ class AIController:
                             return
 
                     except Exception as e:
-                        yield self._event("content", content=f"เกิดข้อผิดพลาดในการดึงข้อมูล: {e}")
+                        logger.error("DB fetch error: %s", e, exc_info=True)
+                        yield self._event("content", content="ขออภัยครับ ระบบไม่สามารถดึงข้อมูลได้ในขณะนี้ กรุณาลองใหม่อีกครั้งนะครับ")
                         yield self._event("done", time=round(time.time() - start_time, 2))
                         return
                 else:
@@ -602,12 +677,14 @@ class AIController:
                 GENERAL_PROMPT_TEMPLATE,
                 CRM_LOG_SYSTEM,
                 CRM_LOG_PROMPT_TEMPLATE,
+                CRM_ADVISORY_SYSTEM,
+                CRM_ADVISORY_PROMPT_TEMPLATE,
             )
 
             ai_context = context_str
 
             # บีบอัดข้อมูลกัน Token เต็ม
-            if "FDATE" in context_str or "|" in context_str:
+            if "|" in context_str and context_str.count("|") > 10:
                 lines = context_str.split("\n")
                 header_lines = [l for l in lines[:3] if "|" in l or "---" in l]
                 data_lines = [l for l in lines[3:] if "|" in l]
@@ -616,9 +693,18 @@ class AIController:
 
             hist_str = "\n".join([f"{m['role']}: {m['content']}" for m in history[-5:]])
 
-            is_crm_log = ("FDATE" in context_str or "Section" in context_str)
+            # ตรวจว่าเป็น CRM data หรือไม่
+            is_crm_data = any(kw in context_str for kw in ["📋", "📊", "📈", "ประวัติล่าสุด", "สถิติรวม", "FDATE", "Section"])
 
-            if is_crm_log:
+            if is_crm_data and intent == "ADVISORY":
+                # คำถามแบบขอคำแนะนำจาก CRM Log → ใช้ Advisory prompt
+                final_prompt = CRM_ADVISORY_PROMPT_TEMPLATE.format(
+                    context=ai_context, question=q
+                )
+                system_prompt = CRM_ADVISORY_SYSTEM
+                insight_tokens = 1000
+            elif is_crm_data:
+                # ดูประวัติ CRM ปกติ → แสดงเป็นรายการ
                 final_prompt = CRM_LOG_PROMPT_TEMPLATE.format(context=ai_context)
                 system_prompt = CRM_LOG_SYSTEM
                 insight_tokens = 1500
@@ -655,12 +741,17 @@ class AIController:
                     else:
                         yield self._event("content", content="ขออภัยครับ ระบบ AI ไม่สามารถสรุปได้ ลองใหม่อีกครั้งนะครับ")
                 except Exception as fallback_err:
-                    logger.error("Fallback generate failed: %s", fallback_err)
-                    yield self._event("content", content="ขออภัยครับ ระบบ AI ไม่ตอบสนองในขณะนี้")
+                    logger.error("Fallback generate failed: %s", fallback_err, exc_info=True)
+                    yield self._event("content", content="ขออภัยครับ ระบบ AI ไม่ตอบสนองในขณะนี้ กรุณาลองใหม่สักครู่นะครับ")
 
             yield self._event("done", time=round(time.time() - start_time, 2))
 
         except SecurityError as e:
-            yield self._event("error", content=f"⚠️ ระงับการค้นหา: {e.message}")
+            logger.warning("SecurityError: %s", e.message)
+            yield self._event("error", content="⚠️ ไม่สามารถดำเนินการได้ กรุณาตรวจสอบคำถามและลองใหม่อีกครั้งครับ")
         except (SBLError, BusinessRuleError) as e:
-            yield self._event("error", content=f"❌ เกิดข้อผิดพลาด: {e.message}")
+            logger.error("SBLError/BusinessRuleError: %s", e.message)
+            yield self._event("error", content="ขออภัยครับ เกิดข้อผิดพลาดในระบบ กรุณาลองใหม่อีกครั้งนะครับ")
+        except Exception as e:
+            logger.error("Unhandled error in process_request: %s", e, exc_info=True)
+            yield self._event("error", content="ขออภัยครับ ระบบขัดข้องชั่วคราว กรุณาลองใหม่สักครู่นะครับ")

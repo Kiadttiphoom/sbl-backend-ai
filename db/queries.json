@@ -59,11 +59,11 @@
             ]
         },
         "OVERDUE_35_DAYS": {
-            "sql": "SELECT TOP 5 LSM010.AccNo, LSM010.OLID, LSM010.Bal, LSM007.FolName FROM LSM010 INNER JOIN LSM007 ON LSM007.FolID = LSM010.FolID WHERE LSM010.Stat2 = 'F' ORDER BY LSM010.Bal DESC",
-            "description": "ลูกหนี้ค้างเกิน 3 เดือนอันดับต้นๆ",
+            "sql": "SELECT TOP :limit LSM010.AccNo, LSM010.OLID, LSM010.Bal, ISNULL(LSM007.FolName, 'ไม่มีผู้ดูแล') AS FolName FROM LSM010 LEFT JOIN LSM007 ON LSM007.FolID = LSM010.FolID WHERE LSM010.Stat2 = 'F' AND LSM010.AccStat = ' ' ORDER BY LSM010.Bal DESC",
+            "description": "ลูกหนี้ค้างเกิน 3 เดือนอันดับต้นๆ (รวมทั้งที่ไม่มีผู้ดูแล)",
             "category": "delinquency",
             "subcategory": "aging",
-            "params": [],
+            "params": ["limit"],
             "example_questions": [
                 "ลูกหนี้ที่ค้างเกิน 90 วัน ถึงกำหนดบอกเลิกสัญญามีกี่ราย",
                 "สัญญาสถานะ F บอกเลิก 35 วันมีใครบ้าง",
@@ -76,6 +76,19 @@
                 "ขอ 5 สัญญาอันดับแรก ที่ ค้างเกิน 3 เดือน",
                 "สัญญาที่ค้างเกิน 3 เดือน 5 รายแรก",
                 "ใครค้างเกิน 90 วันบ้าง ขอ 5 อันดับ"
+            ]
+        },
+        "OVERDUE_ASSIGNED": {
+            "sql": "SELECT TOP :limit LSM010.AccNo, LSM010.OLID, LSM010.Bal, LSM007.FolName FROM LSM010 INNER JOIN LSM007 ON LSM007.FolID = LSM010.FolID WHERE LSM010.Stat2 = 'F' AND LSM010.AccStat = ' ' AND LSM010.FolID != '' ORDER BY LSM010.Bal DESC",
+            "description": "ลูกหนี้ค้างเกิน 3 เดือน เฉพาะที่มีผู้ดูแลแล้ว",
+            "category": "delinquency",
+            "subcategory": "aging",
+            "params": ["limit"],
+            "example_questions": [
+                "ลูกหนี้ค้างเกิน 3 เดือน ที่มีผู้ดูแล",
+                "5 สัญญาค้างเกิน 3 เดือน ที่มีผู้รับผิดชอบ",
+                "สัญญา Stat2 F ที่มีผู้ดูแลยอดสูงสุดมีแค่ไหนบ้าง",
+                "ลูกหนี้ค้างเกิน  3 เดือน ที่มีผู้รับผิดชอบด้วยครับ"
             ]
         },
         "LEGAL_CASE": {
@@ -410,6 +423,22 @@
                 "CRM Log ของสัญญา GGJ1530IIN10 ตั้งแต่ต้น"
             ]
         },
+        "CRM_MISSED_PAYMENTS": {
+            "sql": "SELECT COUNT(*) AS MissedAppointments FROM (SELECT DISTINCT C.Mth, C.Yrs, C.Num FROM CRMDetail C WHERE C.AccNo = :acc_no AND C.Fol2 IN ('DD4','D3')) sub",
+            "description": "นับครั้งที่ผิดนัดชำระ โดยดูจาก Fol2='DD4' (ไม่มาชำระตามนัด) หรือ 'D3' (ไม่มาชำระตามนัด code เก่า) — แม่นกว่าค้นข้อความ ต้องการ acc_no",
+            "category": "crm",
+            "subcategory": "payment",
+            "database": "crms",
+            "params": ["acc_no"],
+            "example_questions": [
+                "สัญญา GGJ1530IIN10 ผิดนัดชำระกี่ครั้ง",
+                "GGJ1530IIN10 ผิดนัดกี่ครั้งแล้ว",
+                "สัญญา DCJ0001IIN ไม่จ่ายตามนัดกี่หน",
+                "ลูกค้าสัญญา MNJ0045ABC ผิดนัดบ่อยไหม",
+                "นับครั้งที่ผิดนัดชำระของสัญญา GGJ1530IIN10",
+                "เบี้ยวนัดกี่ครั้งสัญญา DCJ0001IIN"
+            ]
+        },
         "CRM_APPOINTMENT_LIST": {
             "sql": "SELECT C.AccNo, C.FDate, C.Due_Date, C.FDetail, L.OLID, L.Bal, L.Interest FROM CRMDetail C INNER JOIN [lspdata].[dbo].[LSM010] L ON C.AccNo = L.AccNo WHERE C.Due_Date = :due_date",
             "description": "รายชื่อลูกหนี้ที่นัดชำระเงิน (Due Date) — ต้องการ due_date (YYYYMMDD)",
@@ -467,7 +496,7 @@
             ]
         },
         "CONTRACT_FOLLOWUP_ANALYSIS": {
-            "sql": "SELECT '1_สถิติการติดต่อในสัญญา' AS Section, CAST(SUM(CASE WHEN RTRIM(F1.DesFol) IN ('ติดต่อไม่ได้','ไม่พบผู้เช่าซื้อ','ไม่มีเบอร์โทร','Blacklist','ย้ายที่อยู่','ยังไม่ได้ติดตาม','ปิดเครื่อง','ไม่มีผู้รับสาย','ไม่รับสาย') THEN 1 ELSE 0 END) AS varchar(10)) AS ติดต่อไม่ได้, CAST(SUM(CASE WHEN RTRIM(F1.DesFol) IN ('ติดต่อได้','มาชำระเอง','ลูกหนี้ในเดือน','พบผู้เช่าซื้อ','ติดต่อได้ ไม่นัดชำระ','นัดชำระ','นัดชำระ (ภายในเดือนเท่านั้น)','ไม่ถึงกำหนดชำระ','ชำระล่วงหน้า','ปรับปรุงหนี้','เก็บเงินลูกค้าแล้ว') THEN 1 ELSE 0 END) AS varchar(10)) AS ติดต่อได้, CAST(COUNT(*) AS varchar(10)) AS รวมทั้งหมด, NULL AS FDate, NULL AS FDetail, NULL AS Status1, NULL AS Status2 FROM CRMDetail C LEFT JOIN CRMFol1 F1 ON C.Fol1=F1.CodeFol AND F1.StatusFol=1 WHERE C.AccNo=:acc_no UNION ALL SELECT Section, ติดต่อไม่ได้, ติดต่อได้, รวมทั้งหมด, FDate, FDetail, Status1, Status2 FROM (   SELECT TOP 1 '2_ล่าสุดที่ติดต่อได้สำเร็จ' AS Section,   NULL AS ติดต่อไม่ได้, NULL AS ติดต่อได้, NULL AS รวมทั้งหมด,   C.FDate, 'พนักงานดูแล: ' + ISNULL(C.EmpID,'-') + ' | ความเห็น: ' + CASE WHEN C.AccStatus='1' THEN 'ควรยึดรถ' WHEN C.AccStatus='2' THEN 'ควรปรับปรุงหนี้' ELSE 'ทั่วไป' END + ' | ' + LEFT(CAST(C.FDetail AS varchar(500)),150) AS FDetail,   RTRIM(F1.DesFol) AS Status1, RTRIM(F2.DesFol) AS Status2   FROM CRMDetail C   LEFT JOIN CRMFol1 F1 ON C.Fol1=F1.CodeFol AND F1.StatusFol=1   LEFT JOIN CRMFol2 F2 ON C.Fol2=F2.CodeFol AND F2.StatusFol=1   WHERE C.AccNo=:acc_no AND RTRIM(F1.DesFol) IN ('ติดต่อได้','มาชำระเอง','ลูกหนี้ในเดือน','พบผู้เช่าซื้อ','นัดชำระ','เก็บเงินลูกค้าแล้ว','ปรับปรุงหนี้')   ORDER BY C.FDate DESC, C.FTime DESC ) sub2 UNION ALL SELECT '3_สถานะสัญญาปัจจุบัน' AS Section, NULL AS ติดต่อไม่ได้, NULL AS ติดต่อได้, NULL AS รวมทั้งหมด, NULL AS FDate, 'สถานะ Aging: ' + L.Stat2 + ' | ยอดหนี้คงเหลือ: ' + CAST(L.Bal AS varchar(20)) + ' | งวดค้าง: ' + CAST(L.RLot AS varchar(10)) AS FDetail, 'สถานะสัญญา: ' + L.AccStat AS Status1, 'อายุหนี้: ' + ISNULL(L.[Range],'-') AS Status2 FROM LSM010 L WHERE L.AccNo=:acc_no",
+            "sql": "SELECT '1_สถิติการติดต่อในสัญญา' AS Section, CAST(SUM(CASE WHEN RTRIM(F1.DesFol) IN ('ติดต่อไม่ได้','ไม่พบผู้เช่าซื้อ','ไม่มีเบอร์โทร','Blacklist','ย้ายที่อยู่','ยังไม่ได้ติดตาม','ปิดเครื่อง','ไม่มีผู้รับสาย','ไม่รับสาย') THEN 1 ELSE 0 END) AS varchar(10)) AS ติดต่อไม่ได้, CAST(SUM(CASE WHEN RTRIM(F1.DesFol) IN ('ติดต่อได้','มาชำระเอง','ลูกหนี้ในเดือน','พบผู้เช่าซื้อ','ติดต่อได้ ไม่นัดชำระ','นัดชำระ','นัดชำระ (ภายในเดือนเท่านั้น)','ไม่ถึงกำหนดชำระ','ชำระล่วงหน้า','ปรับปรุงหนี้','เก็บเงินลูกค้าแล้ว') THEN 1 ELSE 0 END) AS varchar(10)) AS ติดต่อได้, CAST(COUNT(*) AS varchar(10)) AS รวมทั้งหมด, NULL AS FDate, NULL AS FDetail, NULL AS Status1, NULL AS Status2 FROM CRMDetail C LEFT JOIN CRMFol1 F1 ON C.Fol1=F1.CodeFol AND F1.StatusFol=1 WHERE C.AccNo=:acc_no UNION ALL SELECT Section, ติดต่อไม่ได้, ติดต่อได้, รวมทั้งหมด, FDate, FDetail, Status1, Status2 FROM (   SELECT TOP 1 '2_ล่าสุดที่ติดต่อได้สำเร็จ' AS Section,   NULL AS ติดต่อไม่ได้, NULL AS ติดต่อได้, NULL AS รวมทั้งหมด,   C.FDate, 'พนักงานดูแล: ' + ISNULL(C.EmpID,'-') + ' | ความเห็น: ' + CASE WHEN C.AccStatus='1' THEN 'ควรยึดรถ' WHEN C.AccStatus='2' THEN 'ควรปรับปรุงหนี้' ELSE 'ทั่วไป' END + ' | ' + LEFT(CAST(C.FDetail AS varchar(500)),150) AS FDetail,   RTRIM(F1.DesFol) AS Status1, RTRIM(F2.DesFol) AS Status2   FROM CRMDetail C   LEFT JOIN CRMFol1 F1 ON C.Fol1=F1.CodeFol AND F1.StatusFol=1   LEFT JOIN CRMFol2 F2 ON C.Fol2=F2.CodeFol AND F2.StatusFol=1   WHERE C.AccNo=:acc_no AND RTRIM(F1.DesFol) IN ('ติดต่อได้','มาชำระเอง','ลูกหนี้ในเดือน','พบผู้เช่าซื้อ','นัดชำระ','เก็บเงินลูกค้าแล้ว','ปรับปรุงหนี้')   ORDER BY C.FDate DESC, C.FTime DESC ) sub2 UNION ALL SELECT '3_สถานะสัญญาปัจจุบัน' AS Section, NULL AS ติดต่อไม่ได้, NULL AS ติดต่อได้, NULL AS รวมทั้งหมด, NULL AS FDate, 'สถานะ Aging: ' + L.Stat2 + ' | ยอดหนี้คงเหลือ: ' + CAST(L.Bal AS varchar(20)) + ' | งวดค้าง: ' + CAST(L.RLot AS varchar(10)) AS FDetail, 'สถานะสัญญา: ' + L.AccStat AS Status1, 'อายุหนี้: ' + ISNULL(L.[Range],'-') AS Status2 FROM [lspdata].[dbo].[LSM010] L WHERE L.AccNo=:acc_no",
             "description": "วิเคราะห์เชิงลึกตาม Schema: สถิติ + รายการสำเร็จพร้อมความเห็นพนักงาน (AccStatus) + สถานะสัญญาปัจจุบัน (LSM010) — ต้องการ acc_no",
             "category": "crm",
             "subcategory": "analysis",

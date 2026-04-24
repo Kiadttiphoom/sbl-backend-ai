@@ -697,9 +697,10 @@
         "type": "nvarchar"
       },
       "Num": {
-        "desc": "ลำดับครั้งที่ติดตาม",
+        "desc": "ครั้งที่ติดตามในเดือนนั้น (session number per month) — หลายแถวใน Mth+Yrs+Num เดียวกัน = หลายการโทรใน session เดียว",
         "type": "varchar",
-        "is_pk": true
+        "is_pk": true,
+        "query_hint": "นับ session จริง → COUNT DISTINCT (Mth, Yrs, Num) ไม่ใช่ COUNT(*)"
       },
       "AccNo": {
         "desc": "เลขที่สัญญา — JOIN LSM010.AccNo",
@@ -726,8 +727,14 @@
         "type": "varchar"
       },
       "AccStatus": {
-        "desc": "ความเห็นผู้ติดตาม (1=ควรยึดรถ, 2=ควรปรับปรุงหนี้)",
-        "type": "char"
+        "desc": "ความเห็นผู้ติดตาม — ค่าที่มีในระบบจริง: 0, 1, 2",
+        "type": "char(1)",
+        "options": {
+          "0": "ปกติ (ไม่มีความเห็นพิเศษ)",
+          "1": "ผู้ติดตามเห็นควรยึดรถ",
+          "2": "ผู้ติดตามเห็นควรปรับปรุงหนี้"
+        },
+        "query_hint": "ใช้ AccStatus = '1' เพื่อดูสัญญาที่ผู้ติดตามเห็นควรยึดรถ | AccStatus ไม่ได้บอกว่าลูกค้าจ่ายเงินหรือไม่"
       },
       "EmpID": {
         "desc": "รหัสพนักงานผู้บันทึกข้อมูล",
@@ -760,61 +767,57 @@
     }
   },
   "CRMFol1": {
-    "description": "ตารางรหัสการติดตาม 1 (Follow-up Master 1)",
+    "description": "ตารางรหัสสถานะการติดตาม ระดับที่ 1 (ผลการดำเนินการหลัก) — JOIN CRMDetail.Fol1 = CRMFol1.CodeFol",
     "database": "crms",
+    "join_note": "JOIN CRMFol1 F1 ON C.Fol1 = F1.CodeFol AND F1.StatusFol = 1",
+    "key_codes": {
+      "DD": "นัดชำระ (ภายในเดือน)",
+      "FF": "ติดต่อไม่ได้",
+      "AA": "ยึดรถ",
+      "BB": "ปรับปรุงหนี้",
+      "EE": "มาชำระเอง",
+      "ZZ": "ส่งกฎหมาย",
+      "NN": "ลูกหนี้ในเดือน (ยังไม่ถึงกำหนด)",
+      "DN": "ติดต่อได้"
+    },
     "columns": {
-      "CodeFol": {
-        "desc": "รหัสติดตาม",
-        "type": "nvarchar",
-        "is_pk": true
-      },
-      "DesFol": {
-        "desc": "ชื่อรายการติดตาม",
-        "type": "nvarchar"
-      },
-      "StatusFol": {
-        "desc": "สถานะการติดตาม",
-        "type": "char"
-      },
-      "StatusS": {
-        "desc": "สถานะ S",
-        "type": "char"
-      },
-      "StatusAuto": {
-        "desc": "สถานะ Auto",
-        "type": "char"
-      }
+      "CodeFol": { "desc": "รหัสสถานะ Fol1", "type": "nvarchar", "is_pk": true },
+      "DesFol": { "desc": "ชื่อสถานะ", "type": "nvarchar" },
+      "StatusFol": { "desc": "1=ใช้งานอยู่, 0=เลิกใช้แล้ว", "type": "char" }
     }
   },
   "CRMFol2": {
-    "description": "ตารางรหัสการติดตาม 2 (Follow-up Master 2)",
+    "description": "ตารางรหัสสถานะการติดตาม ระดับที่ 2 (รายละเอียดผล) — JOIN CRMDetail.Fol2 = CRMFol2.CodeFol",
     "database": "crms",
+    "join_note": "JOIN CRMFol2 F2 ON C.Fol2 = F2.CodeFol AND F2.StatusFol = 1",
+    "key_codes": {
+      "DD4": "ไม่มาชำระตามนัด ← ผิดนัดชำระ (ใช้กรอง WHERE Fol2='DD4')",
+      "D3": "ไม่มาชำระตามนัด (code เก่า)",
+      "DD1": "ยังไม่ถึงกำหนดชำระ",
+      "DD2": "มาชำระแล้ว (ยอดไม่ครบ)",
+      "DD3": "มาชำระแล้ว (ยอดครบ)",
+      "D2": "มาชำระตามนัด",
+      "FF3": "ติดต่อไม่ได้ ปิดเครื่อง",
+      "FF4": "ติดต่อไม่ได้ ไม่มีสัญญาณ",
+      "FF5": "ติดต่อไม่ได้ เบอร์ผิด",
+      "FF6": "ติดต่อไม่ได้ เปลี่ยนเบอร์",
+      "FF7": "ติดต่อไม่ได้ ไม่รับสาย",
+      "DD5": "ติดต่อได้ ไม่นัดชำระ",
+      "AA1": "ตัดยึดแล้ว",
+      "AA2": "รอยึดรอตัด",
+      "BB1": "ปรับปรุงหนี้แล้ว",
+      "O3": "นัดคืนรถ"
+    },
+    "query_hints": {
+      "ผิดนัดชำระ": "WHERE Fol2 IN ('DD4','D3')",
+      "ติดต่อไม่ได้": "WHERE Fol2 IN ('FF3','FF4','FF5','FF6','FF7')",
+      "ชำระแล้ว": "WHERE Fol2 IN ('DD2','DD3','D2')",
+      "ติดต่อได้แต่ไม่นัด": "WHERE Fol2 IN ('DD5','DN1')"
+    },
     "columns": {
-      "CodeFol": {
-        "desc": "รหัสติดตาม",
-        "type": "nvarchar",
-        "is_pk": true
-      },
-      "DesFol": {
-        "desc": "ชื่อรายการติดตาม",
-        "type": "nvarchar"
-      },
-      "StatusFol": {
-        "desc": "สถานะการติดตาม",
-        "type": "char"
-      },
-      "StatusS": {
-        "desc": "สถานะ S",
-        "type": "char"
-      },
-      "StatusAuto": {
-        "desc": "สถานะ Auto",
-        "type": "char"
-      },
-      "StatusC": {
-        "desc": "สถานะ C",
-        "type": "char"
-      }
+      "CodeFol": { "desc": "รหัสสถานะ Fol2", "type": "nvarchar", "is_pk": true },
+      "DesFol": { "desc": "ชื่อสถานะ", "type": "nvarchar" },
+      "StatusFol": { "desc": "1=ใช้งานอยู่, 0=เลิกใช้แล้ว", "type": "char" }
     }
   }
 }
